@@ -6,7 +6,7 @@ An addiction recovery app with the goal of moving users from anonymous online in
 
 - **Frontend**: Flutter (Dart)
 - **Backend**: Go with Gin
-- **Database**: SQLite
+- **Database**: SQLite with Gorm
 - **API**: REST
 
 # Project Structure
