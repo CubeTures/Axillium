@@ -17,6 +17,8 @@ func Register(r *gin.Engine, db *gorm.DB) {
 
 	groups := api.Group("/groups")
 	{
+		groups.GET("", handlers.GetGroups(db))
+		groups.POST("", handlers.CreateGroup(db))
 		groups.GET("/:id/messages", handlers.GetMessages(db))
 		groups.POST("/:id/messages", handlers.SendMessage(db))
 	}

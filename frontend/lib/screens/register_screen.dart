@@ -4,8 +4,9 @@ import '../services/local_storage_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String currentAlias;
+  final String? message; // shown at top when registration is required for a reason
 
-  const RegisterScreen({super.key, required this.currentAlias});
+  const RegisterScreen({super.key, required this.currentAlias, this.message});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -68,6 +69,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.message != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  widget.message!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
             Text(
               'Finalise your alias',
               style: Theme.of(context).textTheme.headlineSmall,
