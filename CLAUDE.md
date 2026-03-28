@@ -40,9 +40,8 @@ An addiction recovery app with the goal of moving users from anonymous online in
 
 1. Text only, alias username
 2. First name — mutual opt-in
-3. In-app voice calls — no real phone numbers
-4. Phone number exchange — mutual opt-in
-5. In-person meeting suggestion — after milestone hit
+3. Phone number exchange — mutual opt-in
+4. In-person meeting suggestion — after milestone hit
 
 Neither side can skip a level without mutual agreement.
 
