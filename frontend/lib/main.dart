@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'models/user.dart';
-import 'screens/auth_screen.dart';
+import 'models/local_user.dart';
 import 'screens/chat_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
+import 'services/local_storage_service.dart';
 
 void main() {
   runApp(const App());
@@ -18,7 +19,13 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  User? _currentUser;
+  late final Future<LocalUser?> _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = LocalStorageService().getUser();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,24 +34,51 @@ class _AppState extends State<App> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
       ),
-      home: _currentUser == null
-          ? AuthScreen(onAuthenticated: (user) => setState(() => _currentUser = user))
-          : MainScreen(user: _currentUser!),
+      home: FutureBuilder<LocalUser?>(
+        future: _initFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.data == null) {
+            return OnboardingScreen(
+              onComplete: (user) => _launch(context, user),
+            );
+          }
+          return MainScreen(initialUser: snapshot.data!);
+        },
+      ),
+    );
+  }
+
+  void _launch(BuildContext context, LocalUser user) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MainScreen(initialUser: user)),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  final User user;
+  final LocalUser initialUser;
 
-  const MainScreen({super.key, required this.user});
+  const MainScreen({super.key, required this.initialUser});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
+  late LocalUser _user;
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = widget.initialUser;
+  }
 
   Widget _buildTab(int index) {
     switch (index) {
@@ -53,13 +87,16 @@ class _MainScreenState extends State<MainScreen> {
       case 1:
         return ChatScreen(
           groupId: 1,
-          userId: widget.user.id,
-          alias: widget.user.alias,
+          userId: _user.userId ?? 0,
+          alias: _user.alias,
         );
       case 2:
         return const CommunityScreen();
       case 3:
-        return ProfileScreen(user: widget.user);
+        return ProfileScreen(
+          user: _user,
+          onRankedUp: (updated) => setState(() => _user = updated),
+        );
       default:
         return const SizedBox.shrink();
     }
