@@ -3,7 +3,6 @@
 - Design screens and flow
 - Create complete feature set, in order of priority
 - Mark stretch goals
-- 
 
 ## Feature Set
 
@@ -78,6 +77,33 @@
         - Can still struggle
         - Very close to regular user
 
+## Home Page
+
+- Anonymous
+    - Read chat, get engaged
+    - Read new community posts
+    - Register
+- Apprentice
+    - Daily Forms
+        - Alert sponsor and leader when relapse
+    - Suggested engagement in chat
+    - Panic button
+    - Sponsor opt in
+        - Sponsor dm if already assigned
+- Sponsor
+    - Sponsor chat
+        - Speak to individual apprentices
+        - Speak to this sponsor's sponsor
+    - Panic button
+
 ## Timeline
 
 - Completed by 9am
+
+
+## Next
+
+- Merge
+- Sponsor dms
+- Sponsor accept request
+- Remove past check ins from home page

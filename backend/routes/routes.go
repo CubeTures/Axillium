@@ -21,5 +21,16 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		groups.POST("", handlers.CreateGroup(db))
 		groups.GET("/:id/messages", handlers.GetMessages(db))
 		groups.POST("/:id/messages", handlers.SendMessage(db))
+		groups.GET("/:id/members", handlers.GetGroupMembers(db))
+		groups.GET("/:id/sponsors", handlers.GetAvailableSponsors(db))
+	}
+
+	api.POST("/check-ins", handlers.CreateCheckIn(db))
+	api.GET("/check-ins/:user_id", handlers.GetCheckIns(db))
+	api.GET("/check-ins/:user_id/today", handlers.GetTodayCheckIn(db))
+
+	users := api.Group("/users")
+	{
+		users.POST("/:id/sponsor", handlers.RequestSponsor(db))
 	}
 }

@@ -82,10 +82,14 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildTab(int index) {
     switch (index) {
       case 0:
-        return const HomeScreen();
+        return HomeScreen(
+          user: widget.user,
+          onNavigate: (i) => setState(() => _selectedIndex = i),
+          onUserUpdated: widget.onUserUpdated,
+        );
       case 1:
         return ChatScreen(
-          groupId: 1,
+          groupId: widget.user.groupId ?? 0,
           userId: widget.user.userId ?? 0,
           alias: widget.user.alias,
         );

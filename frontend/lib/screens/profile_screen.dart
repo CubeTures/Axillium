@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/local_user.dart';
+import '../services/auth_service.dart';
 import '../services/local_storage_service.dart';
+import 'check_in_history_screen.dart';
 import 'register_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -115,21 +118,40 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 16),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ),
-                ),
+                  if (user.isLeader)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Group Leader',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(
@@ -139,16 +161,119 @@ class ProfileScreen extends StatelessWidget {
                     ),
                 textAlign: TextAlign.center,
               ),
+              if (user.isRegistered) ...[
+                const SizedBox(height: 24),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.history),
+                  title: const Text('Past check-ins'),
+                  subtitle: const Text('Review your daily check-in entries'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CheckInHistoryScreen(userId: user.userId!),
+                    ),
+                  ),
+                ),
+                const Divider(),
+              ],
               const Spacer(),
               if (user.rank == 'anonymous')
                 FilledButton(
                   onPressed: () => _rankUp(context),
                   child: const Text('Rank up to Apprentice'),
                 ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 24),
+                _DebugUserSwitcher(onSwitch: onRankedUp),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DebugUserSwitcher extends StatefulWidget {
+  final void Function(LocalUser) onSwitch;
+  const _DebugUserSwitcher({required this.onSwitch});
+
+  @override
+  State<_DebugUserSwitcher> createState() => _DebugUserSwitcherState();
+}
+
+class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
+  static const _seedUsers = [
+    (alias: 'Alice',  phone: '+44700000001'),
+    (alias: 'Bob',    phone: '+44700000002'),
+    (alias: 'Marcus', phone: '+44700000005'),
+    (alias: 'Carol',  phone: '+44700000003'),
+    (alias: 'Dan',    phone: '+44700000004'),
+    (alias: 'Sophie', phone: '+44700000006'),
+    (alias: 'Eve',    phone: '+1200000001'),
+    (alias: 'Frank',  phone: '+1200000002'),
+    (alias: 'Grace',  phone: '+1200000003'),
+    (alias: 'Henry',  phone: '+44161000001'),
+    (alias: 'Isla',   phone: '+44161000002'),
+  ];
+
+  String? _loading;
+
+  Future<void> _loginAs(String alias, String phone) async {
+    setState(() => _loading = alias);
+    try {
+      final apiUser = await AuthService().login(phone, 'password');
+      final localUser = await LocalStorageService().saveRegistration(
+        apiUser.id, apiUser.alias,
+        groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
+        role: apiUser.role,
+        sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
+      );
+      widget.onSwitch(localUser);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Debug login failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.bug_report, size: 14),
+            const SizedBox(width: 4),
+            Text('Debug — switch user',
+                style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _seedUsers.map((u) {
+            final isLoading = _loading == u.alias;
+            return ActionChip(
+              label: isLoading
+                  ? const SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(u.alias),
+              onPressed: _loading != null ? null : () => _loginAs(u.alias, u.phone),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

@@ -16,6 +16,7 @@ func Register(db *gorm.DB) gin.HandlerFunc {
 			PhoneNumber string `json:"phone_number"`
 			Password    string `json:"password"`
 			Alias       string `json:"alias"`
+			GroupID     uint   `json:"group_id"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -36,13 +37,15 @@ func Register(db *gorm.DB) gin.HandlerFunc {
 			PhoneNumber: body.PhoneNumber,
 			Password:    string(hash),
 			Alias:       body.Alias,
+			GroupID:     body.GroupID,
+			Role:        "apprentice",
 		}
 		if err := db.Create(&user).Error; err != nil {
 			c.JSON(http.StatusConflict, gin.H{"error": "phone number already registered"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, models.AuthResponse{ID: user.ID, Alias: user.Alias})
+		c.JSON(http.StatusCreated, models.AuthResponse{ID: user.ID, Alias: user.Alias, GroupID: user.GroupID, Role: user.Role})
 	}
 }
 
@@ -76,6 +79,6 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, models.AuthResponse{ID: user.ID, Alias: user.Alias})
+		c.JSON(http.StatusOK, models.AuthResponse{ID: user.ID, Alias: user.Alias, GroupID: user.GroupID, Role: user.Role, SponsorID: user.SponsorID})
 	}
 }

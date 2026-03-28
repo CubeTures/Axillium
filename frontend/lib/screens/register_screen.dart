@@ -46,8 +46,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      final apiUser = await AuthService().register(phone, password, alias);
-      final localUser = await LocalStorageService().saveRegistration(apiUser.id, apiUser.alias);
+      final groupId = await LocalStorageService().getGroupId();
+      final apiUser = await AuthService().register(phone, password, alias, groupId: groupId ?? 0);
+      final localUser = await LocalStorageService().saveRegistration(
+        apiUser.id, apiUser.alias,
+        groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
+        role: apiUser.role,
+      );
       if (mounted) Navigator.pop(context, localUser);
     } catch (e) {
       if (mounted) {

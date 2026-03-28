@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import 'members_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final int groupId;
@@ -40,6 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
+    if (widget.groupId == 0) return;
     setState(() => _loading = true);
     try {
       final messages = await _service.getMessages(widget.groupId);
@@ -94,12 +96,42 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _openMembers() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MembersScreen(groupId: widget.groupId)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.groupId == 0) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Group Chat')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              'You\'re not in a group yet. Complete onboarding to join one.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Group Chat'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people_outline),
+            tooltip: 'Members',
+            onPressed: _openMembers,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _loadMessages,
@@ -126,11 +158,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
           ),
-          _InputBar(
-            controller: _textController,
-            onSend: _sendMessage,
-            sending: _sending,
-          ),
+          widget.userId == 0
+              ? _AnonBanner()
+              : _InputBar(
+                  controller: _textController,
+                  onSend: _sendMessage,
+                  sending: _sending,
+                ),
         ],
       ),
     );
@@ -143,9 +177,34 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.message, required this.isMe});
 
+  bool get _isSystemMessage => message.content.startsWith('📋');
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    // System check-in messages are shown centred with a neutral style.
+    if (_isSystemMessage) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              message.content,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -164,13 +223,25 @@ class _MessageBubble extends StatelessWidget {
             if (!isMe)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  message.alias,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSecondaryContainer,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.alias,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                    if (message.senderRole == 'leader') ...[
+                      const SizedBox(width: 4),
+                      _RoleBadge(label: 'Leader', color: colorScheme.primary),
+                    ] else if (message.senderRole == 'sponsor') ...[
+                      const SizedBox(width: 4),
+                      _RoleBadge(label: 'Sponsor', color: colorScheme.secondary),
+                    ],
+                  ],
                 ),
               ),
             Text(
@@ -183,6 +254,28 @@ class _MessageBubble extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _RoleBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -231,6 +324,24 @@ class _InputBar extends StatelessWidget {
               onPressed: sending ? null : onSend,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnonBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Text(
+          'Register to send messages.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
     );

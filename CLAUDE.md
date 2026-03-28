@@ -104,6 +104,7 @@ The purpose is stigma reduction and proof that recovery is possible — not buil
 
 # Do Not
 
+- Remove or break existing features unless specified to
 - Suggest Firebase or any third-party backend service
 - Add social media features: followers, likes, share counts, trending sections
 - Store real phone numbers before trust level 4

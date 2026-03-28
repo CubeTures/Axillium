@@ -3,6 +3,7 @@ class Message {
   final int groupId;
   final int userId;
   final String alias;
+  final String senderRole;
   final String content;
   final DateTime createdAt;
 
@@ -11,6 +12,7 @@ class Message {
     required this.groupId,
     required this.userId,
     required this.alias,
+    required this.senderRole,
     required this.content,
     required this.createdAt,
   });
@@ -21,6 +23,7 @@ class Message {
       groupId: json['group_id'] as int,
       userId: json['user_id'] as int,
       alias: json['alias'] as String,
+      senderRole: json['sender_role'] as String? ?? '',
       content: json['content'] as String,
       createdAt: DateTime.parse(json['CreatedAt'] as String),
     );

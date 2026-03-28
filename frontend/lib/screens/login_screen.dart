@@ -36,7 +36,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
     try {
       final apiUser = await AuthService().login(phone, password);
-      final localUser = await LocalStorageService().saveRegistration(apiUser.id, apiUser.alias);
+      final localUser = await LocalStorageService().saveRegistration(
+        apiUser.id, apiUser.alias,
+        groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
+        role: apiUser.role,
+        sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
+      );
       if (mounted) Navigator.pop<LocalUser>(context, localUser);
     } catch (e) {
       if (mounted) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/group_member.dart';
 import '../models/message.dart';
 
 class ChatService {
@@ -15,6 +16,17 @@ class ChatService {
       return data.map((json) => Message.fromJson(json)).toList();
     }
     throw Exception('Failed to load messages (${response.statusCode})');
+  }
+
+  Future<List<GroupMember>> getGroupMembers(int groupId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/groups/$groupId/members'),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((j) => GroupMember.fromJson(j)).toList();
+    }
+    throw Exception('Failed to load group members (${response.statusCode})');
   }
 
   Future<Message> sendMessage(

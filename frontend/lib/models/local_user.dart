@@ -6,6 +6,7 @@ class LocalUser {
   final String? addictionType;
   final int? groupId;
   final bool isLeader;
+  final int? sponsorId; // ID of this user's sponsor (null = none)
 
   const LocalUser({
     required this.alias,
@@ -15,6 +16,7 @@ class LocalUser {
     this.addictionType,
     this.groupId,
     this.isLeader = false,
+    this.sponsorId,
   });
 
   bool get isRegistered => userId != null;
@@ -27,6 +29,7 @@ class LocalUser {
     String? addictionType,
     int? groupId,
     bool? isLeader,
+    int? sponsorId,
   }) {
     return LocalUser(
       alias: alias ?? this.alias,
@@ -36,6 +39,7 @@ class LocalUser {
       addictionType: addictionType ?? this.addictionType,
       groupId: groupId ?? this.groupId,
       isLeader: isLeader ?? this.isLeader,
+      sponsorId: sponsorId ?? this.sponsorId,
     );
   }
 }

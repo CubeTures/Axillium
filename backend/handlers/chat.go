@@ -58,11 +58,21 @@ func SendMessage(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Look up sender's current role so messages can be distinguished by role.
+		var senderRole string
+		if body.UserID > 0 {
+			var sender models.User
+			if db.First(&sender, body.UserID).Error == nil {
+				senderRole = sender.Role
+			}
+		}
+
 		message := models.Message{
-			GroupID: uint(groupID),
-			UserID:  body.UserID,
-			Alias:   body.Alias,
-			Content: body.Content,
+			GroupID:    uint(groupID),
+			UserID:     body.UserID,
+			Alias:      body.Alias,
+			SenderRole: senderRole,
+			Content:    body.Content,
 		}
 		if err := db.Create(&message).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save message"})
@@ -70,5 +80,27 @@ func SendMessage(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, message)
+	}
+}
+
+func GetGroupMembers(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groupID := c.Param("id")
+
+		type MemberRow struct {
+			ID    uint   `json:"id"`
+			Alias string `json:"alias"`
+			Role  string `json:"role"`
+		}
+		var members []MemberRow
+		if err := db.Model(&models.User{}).
+			Select("id, alias, role").
+			Where("group_id = ?", groupID).
+			Find(&members).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load members"})
+			return
+		}
+
+		c.JSON(http.StatusOK, members)
 	}
 }
