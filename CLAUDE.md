@@ -33,8 +33,8 @@ Users progress through roles. Each unlocks new capabilities and responsibilities
 
 | Role | Description |
 |---|---|
-| **Anonymous** | Read-only access to the forum. Alias username only. No profile visible to others. |
-| **Apprentice** | Can post in the forum. Can be paired with a sponsor (opt-in). Has access to the crisis button. Completes daily check-ins. |
+| **Anonymous** | Read-only access to the forum. Alias username only. No profile visible to others. No data stored in main database, only local. |
+| **Apprentice** | Create profile with password, stored in database. Can post in the forum. Can be paired with a sponsor (opt-in). Has access to the crisis button. Completes daily check-ins. |
 | **Sponsor** | A graduate who has opted in to guide apprentices. Visible to their group members only. Manages their own availability. |
 | **Leader** | Started or was elected to lead a small group. Moderates the group, sets check-in schedules, assigns light responsibilities to members. |
 | **Influencer** | An established sponsor or leader who publishes long-form public stories. Visible outside the group to anonymous users. Not a social media presence — no follower counts, no engagement metrics. |

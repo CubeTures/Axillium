@@ -1,0 +1,39 @@
+{
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Write|Edit|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "if echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q '\\.dart$'; then dart format \"$CLAUDE_TOOL_INPUT_FILE_PATH\"; fi"
+                    },
+                    {
+                        "type": "command",
+                        "command": "if echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q '\\.go$'; then gofmt -w \"$CLAUDE_TOOL_INPUT_FILE_PATH\"; fi"
+                    }
+                ]
+            },
+            {
+                "matcher": "Write|Edit|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "if echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q '\\.go$'; then cd $(git rev-parse --show-toplevel) && go vet ./... 2>&1 | head -20; fi"
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'flutter clean|pub cache repair' && echo 'Warning: this clears build cache, will be slow' >&2; exit 0"
+                    }
+                ]
+            }
+        ]
+    }
+}
