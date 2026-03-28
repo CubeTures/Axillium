@@ -17,5 +17,5 @@ func Init() {
 		log.Fatal("failed to connect to database:", err)
 	}
 
-	DB.AutoMigrate(&models.User{}, &models.Message{})
+	DB.AutoMigrate(&models.User{}, &models.Message{}, &models.Post{}, &models.GroupFeature{})
 }

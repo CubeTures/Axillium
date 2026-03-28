@@ -106,7 +106,9 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
         children: [
           Expanded(
             child: _loading
@@ -132,6 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
             sending: _sending,
           ),
         ],
+        ),
       ),
     );
   }
