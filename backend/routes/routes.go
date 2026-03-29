@@ -55,6 +55,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		users.GET("/:id/become-sponsor-status", handlers.GetBecomeSponsorStatus(db))
 		users.POST("/:id/become-sponsor-requests/:notif_id/approve", handlers.ApproveBecomeSponsors(db))
 		users.POST("/:id/become-sponsor-requests/:notif_id/deny", handlers.DenyBecomeSponsors(db))
+		users.POST("/:id/risk-alert", handlers.TriggerRiskAlert(db))
 	}
 
 	api.GET("/dm", handlers.GetDMs(db))

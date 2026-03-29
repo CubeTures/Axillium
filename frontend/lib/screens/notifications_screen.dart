@@ -318,6 +318,7 @@ class _NotificationTile extends StatelessWidget {
       case 'sponsor_accepted':
         return Icons.handshake_outlined;
       case 'relapse_alert':
+      case 'risk_alert':
         return Icons.warning_amber_outlined;
       case 'crisis_alert':
         return Icons.emergency_outlined;
@@ -337,6 +338,7 @@ class _NotificationTile extends StatelessWidget {
   Color _iconColor(ColorScheme cs) {
     switch (notification.type) {
       case 'relapse_alert':
+      case 'risk_alert':
       case 'crisis_alert':
         return cs.error;
       case 'crisis_responded':

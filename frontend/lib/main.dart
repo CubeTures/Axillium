@@ -7,6 +7,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/local_storage_service.dart';
+import 'services/risk_detection_service.dart';
 
 void main() {
   runApp(const App());
@@ -80,8 +81,10 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  String? _riskWarning;
+  final _riskService = RiskDetectionService();
 
   static const _icons = [
     (outline: Icons.home_outlined,          filled: Icons.home_rounded),
@@ -90,6 +93,47 @@ class _MainScreenState extends State<MainScreen> {
     (outline: Icons.notifications_outlined, filled: Icons.notifications),
     (outline: Icons.person_outline,         filled: Icons.person),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Delay slightly so the UI is settled before running checks
+    Future.delayed(const Duration(seconds: 2), _runRiskCheck);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _runRiskCheck();
+  }
+
+  Future<void> _runRiskCheck() async {
+    final user = widget.user;
+    if (!mounted) return;
+    if (user.userId == null) return;
+    if (user.sponsorId == null) return; // no sponsor — nobody to alert
+    final addictionType = user.addictionType;
+    if (addictionType == null || addictionType.isEmpty) return;
+
+    final riskType =
+        await _riskService.runDetection(user.userId!, addictionType);
+    if (!mounted || riskType == null) return;
+
+    final msg = switch (riskType) {
+      'gambling_app' =>
+        'We noticed Kalshi is installed. Your sponsor has been notified. You\'ve got this.',
+      'bar_location' =>
+        'We noticed you may be near a bar. Your sponsor has been notified. Reach out if you need support.',
+      _ => 'Your sponsor has been notified. Reach out if you need support.',
+    };
+    setState(() => _riskWarning = msg);
+  }
 
   Widget _buildTab(int index) {
     switch (index) {
@@ -122,7 +166,21 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       extendBody: true,
-      body: _buildTab(_selectedIndex),
+      body: Stack(
+        children: [
+          _buildTab(_selectedIndex),
+          if (_riskWarning != null)
+            Positioned(
+              bottom: 100,
+              left: 16,
+              right: 16,
+              child: _RiskWarningBanner(
+                message: _riskWarning!,
+                onDismiss: () => setState(() => _riskWarning = null),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -151,6 +209,51 @@ class _MainScreenState extends State<MainScreen> {
               }),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Risk warning banner ────────────────────────────────────────────────────────
+
+class _RiskWarningBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onDismiss;
+
+  const _RiskWarningBanner({required this.message, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      elevation: 6,
+      borderRadius: BorderRadius.circular(16),
+      color: cs.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: cs.onErrorContainer, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.onErrorContainer),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close, size: 18, color: cs.onErrorContainer),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onDismiss,
+            ),
+          ],
         ),
       ),
     );
