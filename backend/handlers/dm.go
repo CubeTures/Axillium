@@ -9,6 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
+type DMResponse struct {
+	models.DirectMessage
+	SenderProfilePicture string `json:"sender_profile_picture"`
+}
+
 func GetDMs(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userA, errA := strconv.ParseUint(c.Query("user_a"), 10, 64)
@@ -18,13 +23,21 @@ func GetDMs(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		var messages []models.DirectMessage
-		if err := db.Where(
-			"(sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)",
-			userA, userB, userB, userA,
-		).Order("created_at asc").Find(&messages).Error; err != nil {
+		var messages []DMResponse
+		if err := db.Raw(`
+			SELECT dm.*, COALESCE(u.profile_picture, '') AS sender_profile_picture
+			FROM direct_messages dm
+			LEFT JOIN users u ON u.id = dm.sender_id
+			WHERE dm.deleted_at IS NULL
+			  AND ((dm.sender_id = ? AND dm.recipient_id = ?)
+			    OR (dm.sender_id = ? AND dm.recipient_id = ?))
+			ORDER BY dm.created_at ASC
+		`, userA, userB, userB, userA).Scan(&messages).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load messages"})
 			return
+		}
+		if messages == nil {
+			messages = []DMResponse{}
 		}
 		c.JSON(http.StatusOK, messages)
 	}

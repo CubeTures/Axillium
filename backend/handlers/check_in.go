@@ -124,10 +124,12 @@ func GetCheckInStats(db *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Days clean
+		// Days clean: days since last relapse, or since first check-in if none, or since account creation.
 		daysClean := 0
 		if lastRelapseTime != nil {
 			daysClean = int(time.Since(*lastRelapseTime).Hours() / 24)
+		} else if len(checkIns) > 0 {
+			daysClean = int(time.Since(checkIns[0].CreatedAt).Hours() / 24)
 		} else {
 			daysClean = int(time.Since(user.CreatedAt).Hours() / 24)
 		}

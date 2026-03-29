@@ -41,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
         groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
         role: apiUser.role,
         sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
+        profilePicture: apiUser.profilePicture,
       );
       if (mounted) Navigator.pop<LocalUser>(context, localUser);
     } catch (e) {

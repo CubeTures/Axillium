@@ -123,7 +123,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     if (upcoming.isEmpty && past.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          padding: const EdgeInsets.fromLTRB(40, 40, 32, 32),
           child: Text(
             canOrganize
                 ? 'No meetings scheduled yet. Tap + to add one.'
@@ -169,7 +169,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
-        20, 16, 20, 20 + MediaQuery.of(context).padding.bottom,
+        20, 16, 20, 20 + MediaQuery.of(context).padding.bottom + 132,
       ),
       children: items,
     );

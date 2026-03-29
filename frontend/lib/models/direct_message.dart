@@ -6,6 +6,7 @@ class DirectMessage {
   final String senderRole;
   final String content;
   final DateTime createdAt;
+  final String? senderProfilePicture;
 
   DirectMessage({
     required this.id,
@@ -15,9 +16,11 @@ class DirectMessage {
     required this.senderRole,
     required this.content,
     required this.createdAt,
+    this.senderProfilePicture,
   });
 
   factory DirectMessage.fromJson(Map<String, dynamic> json) {
+    final pic = json['sender_profile_picture'] as String?;
     return DirectMessage(
       id: json['ID'] as int,
       senderId: json['sender_id'] as int,
@@ -26,6 +29,7 @@ class DirectMessage {
       senderRole: json['sender_role'] as String? ?? '',
       content: json['content'] as String,
       createdAt: DateTime.parse(json['CreatedAt'] as String),
+      senderProfilePicture: (pic != null && pic.isNotEmpty) ? pic : null,
     );
   }
 }

@@ -88,12 +88,13 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, models.AuthResponse{
-			ID:            user.ID,
-			Alias:         user.Alias,
-			GroupID:       user.GroupID,
-			Role:          user.Role,
-			SponsorID:     user.SponsorID,
-			AddictionType: addictionType,
+			ID:             user.ID,
+			Alias:          user.Alias,
+			GroupID:        user.GroupID,
+			Role:           user.Role,
+			SponsorID:      user.SponsorID,
+			AddictionType:  addictionType,
+			ProfilePicture: user.ProfilePicture,
 		})
 	}
 }

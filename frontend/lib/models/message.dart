@@ -6,6 +6,7 @@ class Message {
   final String senderRole;
   final String content;
   final DateTime createdAt;
+  final String? senderProfilePicture;
 
   Message({
     required this.id,
@@ -15,9 +16,11 @@ class Message {
     required this.senderRole,
     required this.content,
     required this.createdAt,
+    this.senderProfilePicture,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    final pic = json['sender_profile_picture'] as String?;
     return Message(
       id: json['ID'] as int,
       groupId: json['group_id'] as int,
@@ -26,6 +29,7 @@ class Message {
       senderRole: json['sender_role'] as String? ?? '',
       content: json['content'] as String,
       createdAt: DateTime.parse(json['CreatedAt'] as String),
+      senderProfilePicture: (pic != null && pic.isNotEmpty) ? pic : null,
     );
   }
 }

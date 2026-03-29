@@ -162,6 +162,22 @@ func Seed(db *gorm.DB) {
 	//
 	// Mood scores: 1=very bad 2=bad 3=okay 4=good 5=great
 	// Each user's trajectory tells a story.
+	// Leaders and sponsors get check-ins too — their days_clean derives from these.
+
+	// Alice — leader, 214 days. Long-haul, settled and mostly positive.
+	seedDailyCIs(alice.ID, 214, func(d int) int {
+		if d > 180 { return 2 + d%2 }
+		if d > 120 { return 3 }
+		if d > 60  { return 4 }
+		return 4 + (214-d)%2
+	})
+
+	// Marcus — sponsor, 180 days. One early rough patch, steady ever since.
+	seedDailyCIs(marcus.ID, 180, func(d int) int {
+		if d > 160 { return 2 }
+		if d > 100 { return 3 }
+		return 4 + d%2
+	})
 
 	// Bob — 84 clean days. Shaky start, steadily finding his footing.
 	seedDailyCIs(bob.ID, 84, func(d int) int {
@@ -180,6 +196,20 @@ func Seed(db *gorm.DB) {
 		return 3 + (60-d)%2
 	}, 14)
 
+	// Carol — leader, 100 days. Newer to leadership, still finding her voice.
+	seedDailyCIs(carol.ID, 100, func(d int) int {
+		if d > 80 { return 2 + d%2 }
+		if d > 40 { return 3 }
+		return 4 + d%2
+	})
+
+	// Sophie — sponsor, 92 days. Relapsed once early (day 85), clean since.
+	seedDailyCIs(sophie.ID, 92, func(d int) int {
+		if d > 82 { return 2 }
+		if d > 50 { return 3 + d%2 }
+		return 4 + (92-d)%2
+	}, 85)
+
 	// Dan — 92 days. Relapsed very early on (day 79 ago). Long clean run since.
 	seedDailyCIs(dan.ID, 92, func(d int) int {
 		if d > 75 { return 2 }
@@ -196,6 +226,20 @@ func Seed(db *gorm.DB) {
 		return 3 + d%2
 	})
 
+	// Henry — leader, 150 days. Quiet and consistent, rarely misses a check-in.
+	seedDailyCIs(henry.ID, 150, func(d int) int {
+		if d > 130 { return 3 }
+		if d > 80  { return 3 + d%2 }
+		return 4 + (150-d)%2
+	})
+
+	// Isla — sponsor, 130 days. Took an early stumble, nothing since.
+	seedDailyCIs(isla.ID, 130, func(d int) int {
+		if d > 120 { return 2 }
+		if d > 70  { return 3 }
+		return 4 + d%2
+	}, 122)
+
 	// Chloe — 120 days. Two early slips, a long clean run after.
 	seedDailyCIs(chloe.ID, 120, func(d int) int {
 		if d > 110 { return 1 }
@@ -210,6 +254,21 @@ func Seed(db *gorm.DB) {
 		if d >= 6 && d <= 8 { return 1 }
 		return 3
 	}, 7)
+
+	// Eve — leader, 200 days. Milestone-focused, mostly great, a dip around day 160.
+	seedDailyCIs(eve.ID, 200, func(d int) int {
+		if d > 180 { return 3 }
+		if d > 155 && d < 170 { return 2 }
+		if d > 100 { return 4 }
+		return 5
+	})
+
+	// Frank — sponsor, 155 days. Positive and consistent; coaches through optimism.
+	seedDailyCIs(frank.ID, 155, func(d int) int {
+		if d > 140 { return 3 }
+		if d > 80  { return 4 }
+		return 4 + (155-d)%2
+	})
 
 	// Grace — 65 clean days. Consistent and positive.
 	seedDailyCIs(grace.ID, 65, func(d int) int {

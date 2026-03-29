@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/group_member.dart';
@@ -218,13 +219,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: cs.primaryContainer,
-                  child: Text(
-                    user.alias.isNotEmpty ? user.alias[0].toUpperCase() : '?',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: cs.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  backgroundImage: user.profilePicture != null
+                      ? MemoryImage(base64Decode(
+                          user.profilePicture!.contains(',')
+                              ? user.profilePicture!.split(',').last
+                              : user.profilePicture!,
+                        ))
+                      : null,
+                  child: user.profilePicture == null
+                      ? Text(
+                          user.alias.isNotEmpty ? user.alias[0].toUpperCase() : '?',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: cs.onPrimaryContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 16),
@@ -259,6 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 8,
+                runSpacing: 8,
                 children: [
                   _Badge(
                     label: label,
@@ -414,7 +425,7 @@ class _StatCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
@@ -821,7 +832,7 @@ class _CardTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          padding: const EdgeInsets.fromLTRB(16, 20, 12, 20),
           child: Row(
             children: [
               Icon(icon, color: cs.onSurfaceVariant, size: 22),
@@ -1156,6 +1167,7 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
         role: apiUser.role,
         sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
         addictionType: apiUser.addictionType,
+        profilePicture: apiUser.profilePicture,
       );
       widget.onSwitch(localUser);
     } catch (e) {

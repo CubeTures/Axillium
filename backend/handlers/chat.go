@@ -9,6 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
+type MessageResponse struct {
+	models.Message
+	SenderProfilePicture string `json:"sender_profile_picture"`
+}
+
 func GetMessages(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		groupID := c.Param("id")
@@ -19,13 +24,20 @@ func GetMessages(db *gorm.DB) gin.HandlerFunc {
 		limit := 20
 		offset := (page - 1) * limit
 
-		var messages []models.Message
-		if err := db.Where("group_id = ?", groupID).
-			Order("created_at asc").
-			Limit(limit).Offset(offset).
-			Find(&messages).Error; err != nil {
+		var messages []MessageResponse
+		if err := db.Raw(`
+			SELECT m.*, COALESCE(u.profile_picture, '') AS sender_profile_picture
+			FROM messages m
+			LEFT JOIN users u ON u.id = m.user_id
+			WHERE m.group_id = ? AND m.deleted_at IS NULL
+			ORDER BY m.created_at ASC
+			LIMIT ? OFFSET ?
+		`, groupID, limit, offset).Scan(&messages).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load messages"})
 			return
+		}
+		if messages == nil {
+			messages = []MessageResponse{}
 		}
 
 		c.JSON(http.StatusOK, messages)

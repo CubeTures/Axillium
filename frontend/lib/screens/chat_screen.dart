@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/direct_message.dart';
 import '../models/local_user.dart';
@@ -692,6 +693,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   role: m.senderRole,
                   content: m.content,
                   createdAt: m.createdAt,
+                  profilePicture: m.senderProfilePicture,
                 ))
             .toList()
         : _dmMessages
@@ -701,6 +703,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   role: m.senderRole,
                   content: m.content,
                   createdAt: m.createdAt,
+                  profilePicture: m.senderProfilePicture,
                 ))
             .toList();
 
@@ -830,7 +833,8 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
-    final bubble = Container(
+    final bubble = IntrinsicWidth(
+      child: Container(
       margin: EdgeInsets.only(
         top: 4,
         bottom: 4,
@@ -903,7 +907,7 @@ class _MessageBubble extends StatelessWidget {
           ),
         ],
       ),
-    );
+    )); // IntrinsicWidth + Container
 
     if (isMe) {
       return Align(
@@ -913,7 +917,13 @@ class _MessageBubble extends StatelessWidget {
     }
 
     // Non-me: avatar + bubble
-    final hasPhoto = message.profilePicture != null;
+    final hasPhoto = message.profilePicture != null && message.profilePicture!.isNotEmpty;
+    ImageProvider? avatarImage;
+    if (hasPhoto) {
+      final pic = message.profilePicture!;
+      final b64 = pic.contains(',') ? pic.split(',').last : pic;
+      avatarImage = MemoryImage(base64Decode(b64));
+    }
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
@@ -924,8 +934,7 @@ class _MessageBubble extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8, bottom: 4),
             child: CircleAvatar(
               radius: 16,
-              backgroundImage:
-                  hasPhoto ? NetworkImage(message.profilePicture!) : null,
+              backgroundImage: avatarImage,
               backgroundColor: colorScheme.secondaryContainer,
               child: hasPhoto
                   ? null

@@ -10,12 +10,14 @@ class LocalStorageService {
   static const _groupIdKey = 'group_id';
   static const _isLeaderKey = 'is_leader';
   static const _sponsorIdKey = 'sponsor_id';
+  static const _profilePictureKey = 'profile_picture';
 
   Future<LocalUser?> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     final alias = prefs.getString(_aliasKey);
     if (alias == null) return null;
     final rawSponsorId = prefs.getInt(_sponsorIdKey);
+    final pic = prefs.getString(_profilePictureKey);
     return LocalUser(
       alias: alias,
       rank: prefs.getString(_rankKey) ?? 'anonymous',
@@ -25,6 +27,7 @@ class LocalStorageService {
       groupId: prefs.getInt(_groupIdKey),
       isLeader: prefs.getBool(_isLeaderKey) ?? false,
       sponsorId: (rawSponsorId != null && rawSponsorId > 0) ? rawSponsorId : null,
+      profilePicture: (pic != null && pic.isNotEmpty) ? pic : null,
     );
   }
 
@@ -80,6 +83,7 @@ class LocalStorageService {
     String role = 'apprentice',
     int? sponsorId,
     String? addictionType,
+    String? profilePicture,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_userIdKey, userId);
@@ -96,6 +100,12 @@ class LocalStorageService {
     if (effectiveAddictionType != null) {
       await prefs.setString(_addictionTypeKey, effectiveAddictionType);
     }
+    final effectivePic = (profilePicture != null && profilePicture.isNotEmpty)
+        ? profilePicture
+        : prefs.getString(_profilePictureKey);
+    if (effectivePic != null && effectivePic.isNotEmpty) {
+      await prefs.setString(_profilePictureKey, effectivePic);
+    }
     return LocalUser(
       alias: alias,
       rank: role,
@@ -105,6 +115,7 @@ class LocalStorageService {
       groupId: effectiveGroupId,
       isLeader: isLeader,
       sponsorId: effectiveSponsorId,
+      profilePicture: effectivePic,
     );
   }
 
