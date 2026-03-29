@@ -111,6 +111,9 @@ func notifyOnRelapse(db *gorm.DB, userID, checkInID uint) {
 	if group.LeaderID > 0 && group.LeaderID != userID {
 		recipients[group.LeaderID] = true
 	}
+	if user.SponsorID > 0 && user.SponsorID != userID {
+		recipients[user.SponsorID] = true
+	}
 
 	for recipientID := range recipients {
 		notification := models.Notification{

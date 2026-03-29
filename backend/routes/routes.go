@@ -34,8 +34,22 @@ func Register(r *gin.Engine, db *gorm.DB) {
 
 	users := api.Group("/users")
 	{
+		users.GET("/:id", handlers.GetUserBasic(db))
 		users.POST("/:id/sponsor", handlers.RequestSponsor(db))
+		users.GET("/:id/sponsor-requests", handlers.GetSponsorRequests(db))
+		users.POST("/:id/sponsor-requests/:notif_id/accept", handlers.AcceptSponsorRequest(db))
+		users.POST("/:id/sponsor-requests/:notif_id/decline", handlers.DeclineSponsorRequest(db))
+		users.GET("/:id/apprentices", handlers.GetApprentices(db))
+		users.GET("/:id/outgoing-sponsor-request", handlers.GetOutgoingSponsorRequest(db))
+		users.DELETE("/:id/outgoing-sponsor-request", handlers.CancelSponsorRequest(db))
+		users.DELETE("/:id/sponsor", handlers.RemoveSponsor(db))
+		users.DELETE("/:id/apprentices/:apprentice_id", handlers.RemoveApprentice(db))
+		users.GET("/:id/notifications", handlers.GetNotifications(db))
+		users.POST("/:id/notifications/:notif_id/read", handlers.MarkNotificationRead(db))
 	}
+
+	api.GET("/dm", handlers.GetDMs(db))
+	api.POST("/dm", handlers.SendDM(db))
 
 	posts := api.Group("/posts")
 	{

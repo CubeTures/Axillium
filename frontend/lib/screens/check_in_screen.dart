@@ -100,7 +100,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
           gid,
           widget.userId,
           widget.alias,
-          '📋 Checked in today — feeling $moodLabel.',
+          '📋 ${widget.alias} checked in — feeling $moodLabel.',
         );
       }
 
@@ -134,6 +134,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
     // Already checked in today — show summary and optional relapse logging.
     if (_todayCheckIn != null && !_relapseMode) {
       return _AlreadyCheckedInView(
+        alias: widget.alias,
         checkIn: _todayCheckIn!,
         onLogRelapse: () => setState(() => _relapseMode = true),
       );
@@ -241,10 +242,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
 /// Shown when the user has already completed their check-in for today.
 class _AlreadyCheckedInView extends StatelessWidget {
+  final String alias;
   final CheckIn checkIn;
   final VoidCallback onLogRelapse;
 
   const _AlreadyCheckedInView({
+    required this.alias,
     required this.checkIn,
     required this.onLogRelapse,
   });
@@ -266,7 +269,7 @@ class _AlreadyCheckedInView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Already checked in today',
+              '$alias has already checked in today',
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),

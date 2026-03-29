@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../models/group_member.dart';
 import '../models/local_user.dart';
 import '../services/auth_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/sponsor_service.dart';
 import 'check_in_history_screen.dart';
 import 'register_screen.dart';
 
@@ -162,6 +164,18 @@ class ProfileScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               if (user.isRegistered) ...[
+                const SizedBox(height: 16),
+                _SponsorStatusSection(
+                  key: ValueKey('sponsor_${user.userId}'),
+                  user: user,
+                  onUserUpdated: onRankedUp,
+                ),
+                _ApprenticeListSection(
+                  key: ValueKey('apprentices_${user.userId}'),
+                  user: user,
+                ),
+              ],
+              if (user.isRegistered) ...[
                 const SizedBox(height: 24),
                 const Divider(),
                 ListTile(
@@ -193,6 +207,205 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SponsorStatusSection extends StatefulWidget {
+  final LocalUser user;
+  final void Function(LocalUser) onUserUpdated;
+
+  const _SponsorStatusSection({
+    super.key,
+    required this.user,
+    required this.onUserUpdated,
+  });
+
+  @override
+  State<_SponsorStatusSection> createState() => _SponsorStatusSectionState();
+}
+
+class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
+  bool _loading = true;
+  String? _confirmedAlias;
+  ({int notifId, int sponsorId, String sponsorAlias})? _pending;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final userId = widget.user.userId!;
+    String? confirmed;
+    ({int notifId, int sponsorId, String sponsorAlias})? pending;
+
+    if (widget.user.sponsorId != null) {
+      final member = await SponsorService().getUserBasic(widget.user.sponsorId!);
+      if (member != null) confirmed = member.alias;
+    }
+
+    if (confirmed == null) {
+      pending = await SponsorService().getOutgoingRequest(userId);
+    }
+
+    if (mounted) {
+      setState(() {
+        _confirmedAlias = confirmed;
+        _pending = pending;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _removeConfirmed() async {
+    try {
+      await SponsorService().removeConfirmedSponsor(widget.user.userId!);
+      final updated = await LocalStorageService().clearSponsorId();
+      if (mounted) {
+        setState(() => _confirmedAlias = null);
+        widget.onUserUpdated(updated);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _rescindPending() async {
+    try {
+      await SponsorService().cancelRequest(widget.user.userId!);
+      if (mounted) setState(() => _pending = null);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || (_confirmedAlias == null && _pending == null)) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+
+    if (_confirmedAlias != null) {
+      return Column(
+        children: [
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.volunteer_activism_outlined),
+            title: const Text('Your sponsor'),
+            subtitle: Text(_confirmedAlias!),
+            trailing: TextButton(
+              onPressed: _removeConfirmed,
+              child: Text('Remove',
+                  style: TextStyle(color: theme.colorScheme.error)),
+            ),
+          ),
+          const Divider(),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        const Divider(),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.hourglass_top_outlined,
+              color: theme.colorScheme.onSurfaceVariant),
+          title: Text('Waiting for ${_pending!.sponsorAlias} to accept'),
+          subtitle: const Text('Sponsor request pending'),
+          trailing: TextButton(
+            onPressed: _rescindPending,
+            child: const Text('Rescind'),
+          ),
+        ),
+        const Divider(),
+      ],
+    );
+  }
+}
+
+class _ApprenticeListSection extends StatefulWidget {
+  final LocalUser user;
+  const _ApprenticeListSection({super.key, required this.user});
+
+  @override
+  State<_ApprenticeListSection> createState() => _ApprenticeListSectionState();
+}
+
+class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
+  List<GroupMember> _apprentices = [];
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await SponsorService().getApprentices(widget.user.userId!);
+      if (mounted) setState(() { _apprentices = list; _loaded = true; });
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  Future<void> _remove(GroupMember apprentice) async {
+    try {
+      await SponsorService().removeApprentice(widget.user.userId!, apprentice.id);
+      if (mounted) setState(() => _apprentices.remove(apprentice));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _apprentices.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text('People you sponsor',
+              style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.1)),
+        ),
+        ..._apprentices.map((a) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.person_outline),
+              title: Text(a.alias),
+              subtitle: Text(a.role),
+              trailing: TextButton(
+                onPressed: () => _remove(a),
+                child: Text('Remove',
+                    style: TextStyle(color: theme.colorScheme.error)),
+              ),
+            )),
+        const Divider(),
+      ],
     );
   }
 }

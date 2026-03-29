@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/local_user.dart';
-import '../screens/check_in_history_screen.dart';
 import '../screens/check_in_screen.dart';
 import '../screens/sponsor_list_screen.dart';
 import 'home_card.dart';
@@ -29,18 +28,6 @@ List<Widget> apprenticeHomeCards({
         ),
       ),
       accentColor: Colors.green,
-    ),
-    HomeCard(
-      icon: Icons.history,
-      title: 'Past check-ins',
-      body: 'Review your previous entries to see how far you\'ve come.',
-      actionLabel: 'View history',
-      onAction: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CheckInHistoryScreen(userId: user.userId!),
-        ),
-      ),
     ),
     // Sponsor card: shown when user has no sponsor yet.
     if (user.sponsorId == null && user.groupId != null)

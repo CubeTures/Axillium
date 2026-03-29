@@ -117,6 +117,21 @@ class LocalStorageService {
     );
   }
 
+  Future<LocalUser> clearSponsorId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sponsorIdKey);
+    return LocalUser(
+      alias: prefs.getString(_aliasKey) ?? 'Anonymous',
+      rank: prefs.getString(_rankKey) ?? 'anonymous',
+      userId: prefs.getInt(_userIdKey),
+      location: prefs.getString(_locationKey),
+      addictionType: prefs.getString(_addictionTypeKey),
+      groupId: prefs.getInt(_groupIdKey),
+      isLeader: prefs.getBool(_isLeaderKey) ?? false,
+      sponsorId: null,
+    );
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

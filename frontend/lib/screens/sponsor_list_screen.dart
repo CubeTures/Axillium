@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/group_member.dart';
-import '../services/local_storage_service.dart';
 import '../services/sponsor_service.dart';
 
 class SponsorListScreen extends StatefulWidget {
@@ -31,9 +30,11 @@ class _SponsorListScreenState extends State<SponsorListScreen> {
     setState(() => _requesting = sponsor.id);
     try {
       await SponsorService().requestSponsor(widget.userId, sponsor.id);
-      await LocalStorageService().saveSponsorId(sponsor.id);
       if (mounted) {
-        Navigator.pop(context, sponsor.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request sent to ${sponsor.alias}. Waiting for their acceptance.')),
+        );
+        Navigator.pop(context, null);
       }
     } catch (e) {
       if (mounted) {

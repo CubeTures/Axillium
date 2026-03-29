@@ -4,6 +4,7 @@ import 'screens/chat_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/local_storage_service.dart';
 
@@ -88,14 +89,12 @@ class _MainScreenState extends State<MainScreen> {
           onUserUpdated: widget.onUserUpdated,
         );
       case 1:
-        return ChatScreen(
-          groupId: widget.user.groupId ?? 0,
-          userId: widget.user.userId ?? 0,
-          alias: widget.user.alias,
-        );
+        return ChatScreen(user: widget.user);
       case 2:
         return CommunityScreen(localUser: widget.user);
       case 3:
+        return NotificationsScreen(user: widget.user);
+      case 4:
         return ProfileScreen(
           user: widget.user,
           onRankedUp: widget.onUserUpdated,
@@ -114,10 +113,11 @@ class _MainScreenState extends State<MainScreen> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          NavigationDestination(icon: Icon(Icons.people_outline), label: 'Community'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: ''),
+          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: ''),
+          NavigationDestination(icon: Icon(Icons.people_outline), label: ''),
+          NavigationDestination(icon: Icon(Icons.notifications_outlined), label: ''),
+          NavigationDestination(icon: Icon(Icons.person_outline), label: ''),
         ],
       ),
     );

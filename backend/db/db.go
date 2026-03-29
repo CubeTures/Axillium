@@ -17,6 +17,6 @@ func Init() {
 		log.Fatal("failed to connect to database:", err)
 	}
 
-	DB.AutoMigrate(&models.User{}, &models.Group{}, &models.Message{}, &models.CheckIn{}, &models.Notification{}, &models.Post{}, &models.GroupFeature{})
+	DB.AutoMigrate(&models.User{}, &models.Group{}, &models.Message{}, &models.CheckIn{}, &models.Notification{}, &models.Post{}, &models.GroupFeature{}, &models.DirectMessage{})
 	Seed(DB)
 }
