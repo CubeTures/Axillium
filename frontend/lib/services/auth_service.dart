@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/user.dart';
 
 class AuthService {
-  static const String _baseUrl = 'http://10.0.2.2:8080/api';
+  static const String _baseUrl = apiBase;
 
   Future<User> register(String phoneNumber, String password, String alias, {int groupId = 0}) async {
     final response = await http.post(

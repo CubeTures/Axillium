@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/group_member.dart';
 import '../models/message.dart';
 
 class ChatService {
-  // On Android emulator, the host machine is 10.0.2.2, not localhost.
-  static const String _baseUrl = 'http://10.0.2.2:8080/api';
+  static const String _baseUrl = apiBase;
 
   Future<List<Message>> getMessages(int groupId, {int page = 1}) async {
     final response = await http.get(

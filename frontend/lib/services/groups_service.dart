@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/group.dart';
 
 class GroupsService {
-  static const String _baseUrl = 'http://10.0.2.2:8080/api';
+  static const String _baseUrl = apiBase;
 
   Future<List<Group>> getGroupsByLocation(String location) async {
     final uri = Uri.parse('$_baseUrl/groups')

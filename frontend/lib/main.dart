@@ -94,7 +94,7 @@ class _MainScreenState extends State<MainScreen> {
           alias: widget.user.alias,
         );
       case 2:
-        return const CommunityScreen();
+        return CommunityScreen(localUser: widget.user);
       case 3:
         return ProfileScreen(
           user: widget.user,

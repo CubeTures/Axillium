@@ -14,11 +14,14 @@
             allowUnfree = true;
           };
         };
-        buildToolsVersion = "33.0.2";
+        buildToolsVersion = "35.0.0";
         androidComposition = pkgs.androidenv.composeAndroidPackages {
-          buildToolsVersions = [ buildToolsVersion ];
-          platformVersions = [ "33" ];
-          abiVersions = [ "arm64-v8a" ];
+          buildToolsVersions = [ "33.0.2" buildToolsVersion ];
+          platformVersions = [ "33" "34" "36" ];
+          abiVersions = [ "arm64-v8a" "x86_64" ];
+          includeNDK = true;
+          ndkVersions = [ "27.0.12077973" ];
+          cmakeVersions = [ "3.22.1" ];
         };
         androidSdk = androidComposition.androidsdk;
       in
