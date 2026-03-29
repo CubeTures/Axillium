@@ -13,11 +13,20 @@ class RiskDetectionService {
 
   // ── Platform checks ────────────────────────────────────────────────────────
 
-  Future<bool> _isKalshiInstalled() async {
+  /// Returns "active", "not_active", or "no_permission".
+  Future<String> _kalshiStatus() async {
     try {
-      return await _channel.invokeMethod<bool>('isKalshiInstalled') ?? false;
+      return await _channel.invokeMethod<String>('kalshiStatus') ?? 'not_active';
     } on PlatformException {
-      return false;
+      return 'not_active';
+    }
+  }
+
+  Future<void> _openUsageAccessSettings() async {
+    try {
+      await _channel.invokeMethod('openUsageAccessSettings');
+    } on PlatformException {
+      // ignore — device may not support it
     }
   }
 
@@ -88,12 +97,15 @@ class RiskDetectionService {
   // ── Entry point ────────────────────────────────────────────────────────────
 
   /// Runs detection for [addictionType] and notifies the backend if a risk is
-  /// found. Returns the triggered risk type string, or null if nothing fired.
+  /// found. Returns the triggered risk type, "needs_permission" if Usage Access
+  /// hasn't been granted yet, or null if nothing fired.
   Future<String?> runDetection(int userId, String addictionType) async {
     switch (addictionType.toLowerCase()) {
       case 'gambling':
         if (await _inCooldown('gambling_app')) return null;
-        if (await _isKalshiInstalled()) {
+        final status = await _kalshiStatus();
+        if (status == 'no_permission') return 'needs_usage_permission';
+        if (status == 'active') {
           await _notifyBackend(userId, 'gambling_app', 'Kalshi');
           await _markSent('gambling_app');
           return 'gambling_app';
@@ -108,4 +120,8 @@ class RiskDetectionService {
     }
     return null;
   }
+
+  /// Opens the Android Usage Access settings screen so the user can grant the
+  /// permission needed to detect foreground app usage.
+  Future<void> requestUsagePermission() => _openUsageAccessSettings();
 }

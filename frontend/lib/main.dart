@@ -125,14 +125,45 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         await _riskService.runDetection(user.userId!, addictionType);
     if (!mounted || riskType == null) return;
 
+    if (riskType == 'needs_usage_permission') {
+      _showUsagePermissionDialog();
+      return;
+    }
+
     final msg = switch (riskType) {
       'gambling_app' =>
-        'We noticed Kalshi is installed. Your sponsor has been notified. You\'ve got this.',
+        'We noticed you opened Kalshi. Your sponsor has been notified. You\'ve got this.',
       'bar_location' =>
         'We noticed you may be near a bar. Your sponsor has been notified. Reach out if you need support.',
       _ => 'Your sponsor has been notified. Reach out if you need support.',
     };
     setState(() => _riskWarning = msg);
+  }
+
+  Future<void> _showUsagePermissionDialog() async {
+    if (!mounted) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('One permission needed'),
+        content: const Text(
+          'To alert your sponsor if you open a gambling app, '
+          'Axillium needs Usage Access. '
+          'You\'ll be taken to Settings — enable Axillium in the list.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    if (go == true) await _riskService.requestUsagePermission();
   }
 
   Widget _buildTab(int index) {
