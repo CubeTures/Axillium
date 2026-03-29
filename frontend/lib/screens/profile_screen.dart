@@ -86,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,7 +179,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(),
               ],
-              const Spacer(),
+              const SizedBox(height: 24),
               if (user.rank == 'anonymous')
                 FilledButton(
                   onPressed: () => _rankUp(context),
