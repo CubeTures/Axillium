@@ -1,66 +1,82 @@
 import 'package:flutter/material.dart';
 
-class HomeCard extends StatelessWidget {
+class HomeTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String body;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-  final Color? accentColor;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final Color? iconColor;
 
-  const HomeCard({
+  const HomeTile({
     super.key,
     required this.icon,
     required this.title,
-    required this.body,
-    this.actionLabel,
-    this.onAction,
-    this.accentColor,
+    this.subtitle,
+    required this.onTap,
+    this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = accentColor ?? Theme.of(context).colorScheme.primary;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
               children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: iconColor ?? cs.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              body,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            if (actionLabel != null) ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonal(
-                  onPressed: onAction,
-                  child: Text(actionLabel!),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

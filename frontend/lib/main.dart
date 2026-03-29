@@ -46,7 +46,10 @@ class _AppState extends State<App> {
     return MaterialApp(
       title: 'Axillium',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFEF7068),
+        ),
+        useMaterial3: true,
       ),
       home: !_initialized
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
@@ -80,6 +83,14 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  static const _icons = [
+    (outline: Icons.home_outlined,          filled: Icons.home_rounded),
+    (outline: Icons.chat_bubble_outline,    filled: Icons.chat_bubble),
+    (outline: Icons.people_outline,         filled: Icons.people),
+    (outline: Icons.notifications_outlined, filled: Icons.notifications),
+    (outline: Icons.person_outline,         filled: Icons.person),
+  ];
+
   Widget _buildTab(int index) {
     switch (index) {
       case 0:
@@ -107,18 +118,75 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
+      extendBody: true,
       body: _buildTab(_selectedIndex),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: ''),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: ''),
-          NavigationDestination(icon: Icon(Icons.people_outline), label: ''),
-          NavigationDestination(icon: Icon(Icons.notifications_outlined), label: ''),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: ''),
-        ],
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.10),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_icons.length, (i) {
+                final selected = _selectedIndex == i;
+                return _NavItem(
+                  icon: selected ? _icons[i].filled : _icons[i].outline,
+                  selected: selected,
+                  onTap: () => setState(() => _selectedIndex = i),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+        ),
       ),
     );
   }

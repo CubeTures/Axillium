@@ -143,7 +143,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.of(context).padding.bottom),
         itemCount: _notifications.length,
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) =>

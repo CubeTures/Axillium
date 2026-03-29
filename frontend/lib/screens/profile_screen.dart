@@ -87,9 +87,8 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -206,7 +205,6 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

@@ -198,7 +198,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   onFeatureToggle: _onFeatureToggle,
                 )),
           ],
-          const SizedBox(height: 80),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
         ],
       ),
     );
