@@ -629,6 +629,14 @@ You're allowed to miss it. You're also allowed to keep going.`,
 	priyaRespondedNotif.UpdatedAt = priyaRespondedNotif.CreatedAt
 	db.Create(&priyaRespondedNotif)
 
+	// ── Become-sponsor pending request (Dan already has 92 check-ins above) ───
+	db.Create(&models.Notification{
+		RecipientID: carol.ID,
+		SenderID:    dan.ID,
+		Type:        "become_sponsor_request",
+		Message:     "Dan has met the eligibility threshold and would like to become a sponsor.",
+	})
+
 	totalCIs := 84 + 21 + 60 + 92 + 14 + 55 + 120 + 21 + 65 + 45 + 3
 	log.Printf("Seed complete: %d groups, %d users, %d messages, %d DMs, %d check-ins, %d posts, %d meetings, %d prompt responses\n",
 		4, len(all), len(messages), len(dms), totalCIs, len(posts), len(meetings), len(responses))
