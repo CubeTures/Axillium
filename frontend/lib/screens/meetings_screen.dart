@@ -122,7 +122,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     if (upcoming.isEmpty && past.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           child: Text(
             canOrganize
                 ? 'No meetings scheduled yet. Tap + to add one.'
@@ -161,7 +161,9 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(
+        20, 16, 20, 20 + MediaQuery.of(context).padding.bottom,
+      ),
       children: items,
     );
   }
@@ -170,11 +172,17 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   Widget build(BuildContext context) {
     final canOrganize = _canOrganize.contains(widget.user.rank);
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Upcoming Meetings'),
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Meetings',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_outlined),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -202,10 +210,12 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 4),
+      padding: const EdgeInsets.only(bottom: 10, top: 8),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
       ),
@@ -256,60 +266,65 @@ class _MeetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    meeting.title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      meeting.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-                if (canOrganize)
-                  IconButton(
-                    icon: Icon(Icons.delete_outline,
-                        size: 20, color: colorScheme.error),
-                    tooltip: 'Cancel meeting',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onDelete,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.schedule_outlined,
-              text: _formatDate(meeting.scheduledAt),
-            ),
-            const SizedBox(height: 4),
-            _InfoRow(
-              icon: Icons.location_on_outlined,
-              text: meeting.location,
-            ),
-            if (meeting.note.isNotEmpty) ...[
+                  if (canOrganize)
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 20, color: cs.error),
+                      tooltip: 'Cancel meeting',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: onDelete,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _InfoRow(
+                icon: Icons.schedule_outlined,
+                text: _formatDate(meeting.scheduledAt),
+              ),
               const SizedBox(height: 4),
               _InfoRow(
-                icon: Icons.notes_outlined,
-                text: meeting.note,
-                muted: true,
+                icon: Icons.location_on_outlined,
+                text: meeting.location,
+              ),
+              if (meeting.note.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _InfoRow(
+                  icon: Icons.notes_outlined,
+                  text: meeting.note,
+                  muted: true,
+                ),
+              ],
+              const SizedBox(height: 10),
+              Text(
+                'Scheduled by ${meeting.createdByAlias}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              'Scheduled by ${meeting.createdByAlias}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
+          ),
         ),
       ),
     );

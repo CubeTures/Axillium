@@ -110,4 +110,7 @@
 - Reoccurring
 - Metrics
 - Relapse
+
 - Timestamps in ui for messages
+- All icons from same pack
+- Notification for scheduled prompt refresh and scheduled visit made?

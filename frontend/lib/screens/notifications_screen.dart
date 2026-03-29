@@ -30,7 +30,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() => _loading = false);
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final items = await _service.getNotifications(widget.user.userId!);
       if (mounted) setState(() => _notifications = items);
@@ -84,17 +87,57 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 32, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Notifications',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Updates from your group and sponsors.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_outlined),
+                    tooltip: 'Refresh',
+                    onPressed: _loading ? null : _load,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // ── Body ─────────────────────────────────────────────────────────
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -106,9 +149,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            Text(
+              _error!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
             const SizedBox(height: 12),
-            TextButton(onPressed: _load, child: const Text('Retry')),
+            FilledButton.tonal(onPressed: _load, child: const Text('Retry')),
           ],
         ),
       );
@@ -142,17 +190,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.of(context).padding.bottom),
+      child: ListView.builder(
+        padding: EdgeInsets.fromLTRB(
+          20, 4, 20, 20 + MediaQuery.of(context).padding.bottom,
+        ),
         itemCount: _notifications.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) =>
-            _NotificationTile(
-              notification: _notifications[index],
-              onDismiss: _dismiss,
-              onAccept: _acceptSponsorRequest,
-              onDecline: _declineSponsorRequest,
+        itemBuilder: (context, index) {
+          final n = _notifications[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Dismissible(
+              key: ValueKey(n.id),
+              direction: DismissDirection.endToStart,
+              onDismissed: (_) => _dismiss(n),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+              ),
+              child: _NotificationTile(
+                notification: n,
+                onAccept: _acceptSponsorRequest,
+                onDecline: _declineSponsorRequest,
+              ),
             ),
+          );
+        },
       ),
     );
   }
@@ -160,13 +230,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
 class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
-  final Future<void> Function(AppNotification) onDismiss;
   final Future<void> Function(AppNotification) onAccept;
   final Future<void> Function(AppNotification) onDecline;
 
   const _NotificationTile({
     required this.notification,
-    required this.onDismiss,
     required this.onAccept,
     required this.onDecline,
   });
@@ -184,8 +252,7 @@ class _NotificationTile extends StatelessWidget {
     }
   }
 
-  Color _iconColor(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+  Color _iconColor(ColorScheme cs) {
     switch (notification.type) {
       case 'relapse_alert':
         return cs.error;
@@ -196,62 +263,6 @@ class _NotificationTile extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isSponsorRequest = notification.type == 'sponsor_request';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(_icon, color: _iconColor(context), size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  notification.message,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(notification.createdAt),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                if (isSponsorRequest) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      FilledButton.tonal(
-                        onPressed: () => onAccept(notification),
-                        child: const Text('Accept'),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () => onDecline(notification),
-                        child: const Text('Decline'),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!isSponsorRequest)
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              tooltip: 'Dismiss',
-              onPressed: () => onDismiss(notification),
-            ),
-        ],
-      ),
-    );
-  }
-
   String _formatDate(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
@@ -260,5 +271,65 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Yesterday';
     return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isSponsorRequest = notification.type == 'sponsor_request';
+
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(_icon, color: _iconColor(cs), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.message,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatDate(notification.createdAt),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  if (isSponsorRequest) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () => onAccept(notification),
+                          child: const Text('Accept'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => onDecline(notification),
+                          child: const Text('Decline'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

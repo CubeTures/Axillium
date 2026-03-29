@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -59,19 +58,20 @@ func GetTodayCheckIn(db *gorm.DB) gin.HandlerFunc {
 		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		endOfDay := startOfDay.Add(24 * time.Hour)
 
-		var checkIn models.CheckIn
+		var checkIns []models.CheckIn
 		err := db.Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, startOfDay, endOfDay).
 			Order("created_at asc").
-			First(&checkIn).Error
+			Limit(1).
+			Find(&checkIns).Error
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"checked_in": false})
-				return
-			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query check-in"})
 			return
 		}
-		c.JSON(http.StatusOK, checkIn)
+		if len(checkIns) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"checked_in": false})
+			return
+		}
+		c.JSON(http.StatusOK, checkIns[0])
 	}
 }
 

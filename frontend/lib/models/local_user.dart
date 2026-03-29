@@ -7,6 +7,7 @@ class LocalUser {
   final int? groupId;
   final bool isLeader;
   final int? sponsorId; // ID of this user's sponsor (null = none)
+  final String? profilePicture; // URL; null until the user uploads one
 
   const LocalUser({
     required this.alias,
@@ -17,6 +18,7 @@ class LocalUser {
     this.groupId,
     this.isLeader = false,
     this.sponsorId,
+    this.profilePicture,
   });
 
   bool get isRegistered => userId != null;
@@ -30,6 +32,7 @@ class LocalUser {
     int? groupId,
     bool? isLeader,
     int? sponsorId,
+    String? profilePicture,
   }) {
     return LocalUser(
       alias: alias ?? this.alias,
@@ -40,6 +43,7 @@ class LocalUser {
       groupId: groupId ?? this.groupId,
       isLeader: isLeader ?? this.isLeader,
       sponsorId: sponsorId ?? this.sponsorId,
+      profilePicture: profilePicture ?? this.profilePicture,
     );
   }
 }

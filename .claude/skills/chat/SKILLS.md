@@ -1,83 +1,117 @@
 ---
 name: flutter-go-group-chat
-description: "Use this skill when designing or building a group chat application with a Flutter frontend and a Go backend. Covers architectural decisions, technology choices, real-time communication patterns, state management, and persistence. Trigger on: 'group chat', 'chat app', 'real-time messaging', 'chat rooms', or any request to build messaging features in Flutter with a Go/Gin/GORM backend."
+description: Architecture and implementation reference for the Axillium chat system. Use this skill when working on group chat, direct messages, weekly prompts, or any messaging feature. Covers the actual patterns in use — REST-based polling, the unified message model, mode switching, and the overlay layout.
 ---
 
-# Flutter + Go Group Chat Architecture
+# Axillium Chat Architecture
 
-## Stack
+## What's Actually Built
 
-| Layer | Choices |
+The chat system uses **REST polling**, not WebSockets. There is no `flutter_chat_ui` package, no Riverpod, no StreamBuilder. Messages are fetched on demand and state lives in a single `StatefulWidget`.
+
+---
+
+## Backend
+
+| Endpoint | Purpose |
 |---|---|
-| Real-time transport | WebSockets (`gorilla/websocket` on Go, `web_socket_channel` on Flutter) |
-| Backend framework | Gin + GORM + SQLite |
-| Frontend state | Riverpod (preferred) or Provider |
-| Chat UI | `flutter_chat_ui` (saves significant time) or custom `ListView.builder` + `StreamBuilder` |
+| `GET /api/chat/:group_id` | Fetch group messages |
+| `POST /api/chat` | Send a group message |
+| `GET /api/dm/:user_a/:user_b` | Fetch DMs between two users |
+| `POST /api/dm` | Send a DM |
+| `GET /api/weekly-prompt/current` | Get current week's prompt |
+| `POST /api/weekly-prompt/respond` | Post a response to the prompt |
 
-Avoid SSE — chat requires bidirectional communication.
+All responses are JSON arrays or objects. Standard HTTP status codes. No WebSocket endpoints.
 
 ---
 
-## Core Architectural Decisions
+## Flutter Layer
 
-### 1. Hub/Broadcast Pattern (Go)
+### Service Files (`lib/services/`)
 
-Use a single Hub goroutine that owns all room/client state. Never share maps across goroutines directly.
+- `ChatService` — group messages
+- `DmService` — direct messages
+- `WeeklyPromptService` — weekly prompt + paginated responses
+- `SponsorService` — used to resolve sponsor/apprentice DM targets
 
-- Each connected client gets two goroutines: one for reading, one for writing
-- Clients communicate with the Hub via channels (register, unregister, broadcast)
-- The Hub fans out messages to all clients in a room
-- Slow or dead clients are dropped rather than blocking the broadcast
+Screens never call HTTP directly — all network calls go through these services.
 
-This pattern keeps concurrency safe and simple without locks.
+### State (`_ChatScreenState`)
 
-### 2. Typed Message Envelope
+Single `StatefulWidget` owns all chat state. Three modes controlled by `_ChatMode` enum:
 
-All WebSocket messages — in both directions — use a single JSON envelope:
+```dart
+enum _ChatMode { group, weeklyPrompt, dm }
+```
+
+Mode switch triggers a load. No persistent connection — fetch on enter, fetch on refresh.
+
+DM targets are resolved once at init: sponsor (if user has one) and apprentices (if user is sponsor/leader).
+
+### `_UnifiedMessage`
+
+A thin view model that normalises group messages, DMs, and prompt responses into a single shape for `_MessageBubble`:
+
+```dart
+class _UnifiedMessage {
+  final int senderId;
+  final String alias;
+  final String role;
+  final String content;
+}
+```
+
+---
+
+## Chat Screen Layout
+
+The screen uses `extendBodyBehindAppBar: true` with a `Stack`. No `AppBar` widget.
 
 ```
-{ "type": "message|join|leave|error", "payload": { ... } }
+Stack
+├── Positioned.fill: message ListView (or loading/empty state)
+├── Positioned bottom: solid background block (covers bottom safe area + half the input bar)
+├── Positioned bottom: _InputBar or _AnonBanner
+├── Positioned top: solid background block (covers status bar + half the pill)
+└── Positioned top: floating header pill
 ```
 
-Define the type field as a string enum on both the Go and Flutter sides. Unknown types should be logged and ignored, not cause errors. This makes the protocol extensible without breaking existing clients.
-
-### 3. Message History via REST, Live Updates via WebSocket
-
-- On room entry: fetch history with a REST GET request first, then open the WebSocket
-- Doing it in this order prevents missing messages during the connection window
-- Paginate history (cursor or offset) — don't load the entire room history at once
-
-### 4. Flutter State Architecture
-
-- `ChatService` owns the `WebSocketChannel` and exposes a broadcast `Stream<Envelope>`
-- A Riverpod `StateNotifier` subscribes to that stream and maintains the message list
-- The UI widget watches the notifier — no direct WebSocket access in widgets
-- Always call `disconnect()` in `dispose()` to avoid leaked connections
+The `headerOffset` (top padding + 88px) is passed as padding to the `ListView` so content starts below the pill. The `solidBottomHeight` (safe area + 32px) mirrors this at the bottom.
 
 ---
 
-## Key Design Constraints
+## Bubble Colours
 
-**SQLite concurrency**: SQLite allows only one writer at a time. This is fine for low-to-moderate write load. If write throughput becomes a bottleneck, migrate to Postgres. Don't try to work around SQLite's write limits — just switch databases.
+| Sender | Background | Text |
+|---|---|---|
+| Me | `Color(0xFFFCE4EC)` (light pink) | `Color(0xFF4A1428)` |
+| Others | `colorScheme.secondaryContainer` | `colorScheme.onSecondaryContainer` |
+| System (📋 prefix) | `colorScheme.surfaceContainerHighest` | `colorScheme.onSurfaceVariant` |
 
-**Single server assumption**: This architecture uses in-process fanout via the Hub. If you need to scale to multiple server instances, you'll need a pub/sub layer (e.g. Redis) between them. Don't add this complexity until it's needed.
-
-**Ping/pong keepalive**: WebSocket connections go stale silently. The Go server must send periodic ping frames and close connections that don't respond with a pong. Set read deadlines accordingly. Without this, dead connections accumulate and the Hub leaks memory.
-
-**Buffered send channels**: Each client's outbound channel should be buffered (e.g. 256). If the buffer fills (slow client), drop the client rather than blocking the Hub's broadcast loop.
-
-**`CheckOrigin` in production**: `gorilla/websocket`'s upgrader rejects cross-origin requests by default. During development it's common to bypass this — make sure to restore proper origin validation before deploying.
+System messages are check-in notifications — detected by `content.startsWith('📋')`, displayed as centred pills, not bubbles.
 
 ---
 
-## What to Build First
+## Role Badges
 
-1. Hub + client skeleton with connect/disconnect
-2. Broadcast a hardcoded message to verify fanout works
-3. Add the message envelope and parse real payloads
-4. Persist messages to SQLite via GORM
-5. Add REST history endpoint
-6. Build Flutter `ChatService` and wire to `flutter_chat_ui`
-7. Add join/leave presence events last — they're non-critical
+Shown inline next to alias for `leader` (primary colour) and `sponsor` (secondary colour). Rendered as `_RoleBadge` — small pill with 15% alpha background.
 
-Don't add auth, rooms, or presence until the basic message loop is proven end-to-end.
+---
+
+## Weekly Prompt
+
+Paginated (20 per page). `_scrollController` listener triggers `_loadMorePromptResponses` when user scrolls near the bottom. Responses use the same `_MessageBubble` as group chat.
+
+Prompt card appears above the response list, styled with `colorScheme.primaryContainer`.
+
+Only `_canSetPrompt` roles (`sponsor`, `leader`, `influencer`) see the edit icon. Only `_canRespond` roles can post responses.
+
+---
+
+## Key Constraints
+
+- **No real-time**: Users must pull-to-refresh or re-enter the screen to see new messages. This is intentional for now — the app is not designed to keep users engaged.
+- **No message deletion**: Messages are append-only from the client side.
+- **DM targets are fixed at load time**: The list of people a user can DM is resolved once in `initState` and doesn't refresh unless the screen is rebuilt.
+- **Group ID 0 guard**: If `_groupId == 0`, the screen shows an "join a group" message and makes no network calls.

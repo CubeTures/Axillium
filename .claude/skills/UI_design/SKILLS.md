@@ -1,99 +1,128 @@
 ---
 name: app-ui-layout
-description: High-level UI and layout reference for a Flutter addiction recovery app. Use this skill whenever working on screen layout, navigation structure, onboarding flow, user progression/tiers, or any feature placement decisions for this app.
+description: UI style, layout, and component reference for the Axillium Flutter app. Use this skill whenever working on screen layout, navigation, visual design, or new components. Covers the design language, spacing, typography, and the patterns established across home, chat, check-in, and meetings screens.
 ---
 
-# App UI Layout Reference
+# Axillium UI Reference
 
-## Onboarding Flow
+## Design Language
 
-**Screen 1 — Identity**
+Flat Material You with warm tones. No gradients on content surfaces, no heavy shadows, no card elevation. The UI should feel calm and grounded — this is a recovery app, not a productivity tool.
 
-- User enters a name OR opts to remain anonymous
-
-**Screen 2 — Location & Community**
-
-- User sets location
-- App lists available communities (filtered by addiction type)
-- Option to start a new community (user selects addiction type)
-
-**Screen 3 — Welcome / Tier Intro**
-
-- Explains anonymous start and the tier system:
-
-```
-Your Journey Ahead:
-    → Anonymous:   Observe and learn
-    → Apprentice:  Engage with the community
-    → Sponsor:     Help others on their journey
-    → Leader:      Guide and moderate groups
-    → Influencer:  Inspire through your story
-```
+**Core principles:**
+- Surfaces use `surfaceContainerLow` for cards and tiles, `surface` for page backgrounds
+- Rounded corners: `BorderRadius.circular(16)` for cards/tiles, `BorderRadius.circular(12)` for fields, `BorderRadius.circular(32)` for pill-shaped inputs
+- No `Card` widget — use `Material` with explicit `color` and `borderRadius` + `clipBehavior: Clip.antiAlias`
+- No `ListTile` — build rows manually with `Padding` + `Row` for full control
+- AppBars are transparent with `scrolledUnderElevation: 0`; page title comes from the body content, not the AppBar, on content-heavy screens
+- No engagement metrics, follower counts, or gamification chrome
 
 ---
 
-## Navigation Structure
+## Typography Scale in Use
 
-Bottom nav (or equivalent): **Home | Chat | Community | Profile**
-
----
-
-## Home
-
-- Personalized greeting
-- Days-clean counter
-- Daily check-in action
-- Two tabs:
-  - Community chat (scoped to user's community)
-  - Global message board
-- Progress tracker widget:
-  - Days clean
-  - Check-ins completed
-  - Current tier
+| Use | Style | Weight |
+|---|---|---|
+| Page greeting / hero title | `displaySmall` | w300 (muted) + w700 (name) on two lines |
+| Section labels | `bodySmall` + `letterSpacing: 0.8` + `onSurfaceVariant` | w600 |
+| Card title | `titleSmall` or `titleMedium` | w600 |
+| Body / description | `bodyMedium` | regular |
+| Metadata / captions | `bodySmall`, `onSurfaceVariant` | regular |
 
 ---
 
-## Chat
+## Navigation
 
-- List of community chats the user belongs to
-- Each chat: basic multi-user chat client
+Bottom nav with four tabs: **Home | Chat | Community | Profile**
 
----
-
-## Community
-
-- Global feed, "Substack-style" blog posts
-- Posts surfaced from: Sponsors, Influencers, Leaders
-- Read-only for Anonymous/Apprentice tiers (implied)
+No nested navigators — screens pushed from tabs use `Navigator.push` with `MaterialPageRoute`.
 
 ---
 
-## Profile
+## Home Screen Pattern
 
-**Header:** Name, profile picture, location, date joined
+No AppBar. `SafeArea` + `ListView` with `padding: EdgeInsets.fromLTRB(20, 32, 20, bottom)`.
 
-**Stats section:**
+Structure:
+1. Two-line greeting (`displaySmall` w300 muted / `displaySmall` w700)
+2. Subtitle in `bodyMedium` + `onSurfaceVariant`
+3. `_CheckInStrip` — full-width tappable row, filled primary when not yet done, `surfaceContainerLow` when done
+4. Section labels (`bodySmall`, spaced caps, `onSurfaceVariant`)
+5. `HomeTile` rows — `surfaceContainerLow`, `circular(16)`, icon box + title + chevron
 
-- Days clean
-- Check-ins completed
-- Days active
+`HomeTile` anatomy:
+- Container: `surfaceContainerLow`, `circular(16)`, `InkWell`
+- Icon in a `surfaceContainerHighest` box, `circular(12)`, 20px icon
+- Title: `titleMedium` w600, optional subtitle: `bodySmall` `onSurfaceVariant`
+- Trailing: `Icons.chevron_right_rounded`, `onSurfaceVariant` at 50% alpha
 
-**Tier section:**
+---
 
-- Current tier name + description
-- Progress bar to next tier
+## Chat Screen Pattern
 
-Example tier display:
+No AppBar. `extendBodyBehindAppBar: true`. Floating pill header positioned with `Stack` + `Positioned`.
 
-```
-Observer & Learner
-You can view conversations and blogs. When ready, start engaging to become an Apprentice.
+**Floating header pill:**
+- `LinearGradient` from `primaryContainer` → `secondaryContainer`
+- `BorderRadius.circular(28)`, `elevation: 3`
+- Left padding `20`, right padding `12`
+- Title uses `titleMedium` w600 inside a `PopupMenuButton`
 
-Progress to next tier: 0%
+**Message bubbles:**
+- "Me" bubbles: `Color(0xFFFCE4EC)` (light pink), text `Color(0xFF4A1428)`, right-aligned, subtle shadow
+- "Other" bubbles: `secondaryContainer`, text `onSecondaryContainer`, left-aligned with `CircleAvatar`
+- Sender alias: `bodySmall` bold above bubble content, bottom padding 2px
+- System messages (check-in notifications): centred, `surfaceContainerHighest` pill, `bodySmall` `onSurfaceVariant`
+- Max bubble width: 72% of screen width
 
-Current Perks:
-    ✓ View group chat
-    ✓ Read community posts
-    ✓ Complete daily check-ins
-    ✓ No pressure to engage
-```
+**Input bar:**
+- `surfaceContainerHighest` pill, `circular(32)`
+- `TextField` with no border, horizontal padding 20
+- Trailing `FilledButton` circle send button
+
+---
+
+## Form / Sheet Pattern (check-in, schedule meeting)
+
+- Transparent AppBar or modal bottom sheet with drag handle
+- Section containers: `surfaceContainerLow`, `circular(16)`, `padding: all(20)`, spaced 10px apart
+- Section heading: `titleMedium` w600
+- Submit: full-width `FilledButton`, `circular(14)`, height 52
+
+---
+
+## Meetings / List Screen Pattern
+
+Transparent AppBar, bold title (`w700`), refresh icon (`Icons.refresh_outlined`).
+
+`ListView` padding: `fromLTRB(20, 16, 20, bottom)`.
+
+**Meeting card:**
+- `Material` with `surfaceContainerLow`, `circular(16)`, `Clip.antiAlias`
+- Padding: `fromLTRB(20, 16, 12, 16)`
+- Title: `titleSmall` w600
+- Info rows: 16px icon + 6px gap + `bodyMedium` text
+- Footer: `bodySmall` `onSurfaceVariant`
+- Bottom margin: 10px
+
+Section headers (`Upcoming`, `Past`): `bodySmall` w600, `letterSpacing: 0.8`, `onSurfaceVariant`, `padding: only(bottom: 10, top: 8)`.
+
+---
+
+## Colour Notes
+
+- Never hardcode `Colors.white` or `Colors.black` — use `colorScheme` tokens
+- "Me" chat bubble is the one intentional hardcoded colour: `0xFFFCE4EC` / `0xFF4A1428`
+- Accent tints (e.g. green on check-in complete) use `accentColor` props, not hardcoded palette values in layout code
+- `withValues(alpha: x)` not `withOpacity` — keeps colour space correct
+
+---
+
+## What Not to Do
+
+- No `Card()` — use `Material` with explicit decoration
+- No `ListTile` — build rows manually
+- No engagement widgets: likes, follower counts, streaks displayed as achievements
+- No infinite scroll — use pagination
+- No `withOpacity` — use `withValues(alpha: x)`
+- No `Colors.white` backgrounds — use `cs.surface`

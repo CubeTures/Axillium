@@ -31,11 +31,13 @@ class ProfileScreen extends StatelessWidget {
 
   static const _rankDescriptions = {
     'anonymous': 'You\'re browsing anonymously. Register to participate.',
-    'apprentice': 'You\'re on your journey. You can post, connect with a sponsor, and join a group.',
+    'apprentice':
+        'You\'re on your journey. You can post, connect with a sponsor, and join a group.',
     'sponsor': 'You\'re guiding others in their recovery.',
     'leader': 'You lead a small group and help set the pace.',
     'influencer': 'You share your story to reduce stigma and inspire others.',
-    'graduated': 'You\'ve marked your recovery. You can stay on to support others.',
+    'graduated':
+        'You\'ve marked your recovery. You can stay on to support others.',
   };
 
   Future<void> _rankUp(BuildContext context) async {
@@ -74,30 +76,58 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final label = _rankLabels[user.rank] ?? user.rank;
     final description = _rankDescriptions[user.rank] ?? '';
 
     return Scaffold(
-      appBar: AppBar(
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Log out',
-            onPressed: () => _confirmLogout(context),
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20, 0, 20, 24 + MediaQuery.of(context).padding.bottom,
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Top row ──────────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.logout_outlined),
+                    tooltip: 'Log out',
+                    onPressed: () => _confirmLogout(context),
+                  ),
+                ],
+              ),
+
+              // ── Avatar ───────────────────────────────────────────────────
+              Center(
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: cs.primaryContainer,
+                  child: Text(
+                    user.alias.isNotEmpty
+                        ? user.alias[0].toUpperCase()
+                        : '?',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
-              const Icon(Icons.account_circle, size: 80),
-              const SizedBox(height: 16),
+
+              // ── Alias + location ─────────────────────────────────────────
               Text(
                 user.alias,
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
                 textAlign: TextAlign.center,
               ),
               if (user.location != null && user.location!.isNotEmpty) ...[
@@ -106,64 +136,47 @@ class ProfileScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.location_on_outlined,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        size: 14, color: cs.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Text(
                       user.location!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // ── Rank badges ──────────────────────────────────────────────
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 8,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    ),
+                  _Badge(
+                    label: label,
+                    color: cs.primaryContainer,
+                    textColor: cs.onPrimaryContainer,
                   ),
                   if (user.isLeader)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Group Leader',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSecondaryContainer,
-                        ),
-                      ),
+                    _Badge(
+                      label: 'Group Leader',
+                      color: cs.secondaryContainer,
+                      textColor: cs.onSecondaryContainer,
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
+
+              // ── Registered sections ──────────────────────────────────────
               if (user.isRegistered) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 28),
                 _SponsorStatusSection(
                   key: ValueKey('sponsor_${user.userId}'),
                   user: user,
@@ -173,41 +186,140 @@ class ProfileScreen extends StatelessWidget {
                   key: ValueKey('apprentices_${user.userId}'),
                   user: user,
                 ),
-              ],
-              if (user.isRegistered) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.history),
-                  title: const Text('Past check-ins'),
-                  subtitle: const Text('Review your daily check-in entries'),
-                  trailing: const Icon(Icons.chevron_right),
+                const SizedBox(height: 10),
+                _CardTile(
+                  icon: Icons.history_outlined,
+                  title: 'Check-in history',
+                  subtitle: 'Review your daily check-in entries',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CheckInHistoryScreen(userId: user.userId!),
+                      builder: (_) =>
+                          CheckInHistoryScreen(userId: user.userId!),
                     ),
                   ),
                 ),
-                const Divider(),
               ],
-              const SizedBox(height: 24),
-              if (user.rank == 'anonymous')
+
+              // ── Rank up ──────────────────────────────────────────────────
+              if (user.rank == 'anonymous') ...[
+                const SizedBox(height: 28),
                 FilledButton(
                   onPressed: () => _rankUp(context),
-                  child: const Text('Rank up to Apprentice'),
+                  child: const Text('Register as Apprentice'),
                 ),
+              ],
+
+              // ── Debug switcher ───────────────────────────────────────────
               if (kDebugMode) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 _DebugUserSwitcher(onSwitch: onRankedUp),
               ],
             ],
           ),
         ),
+      ),
     );
   }
 }
+
+// ── Badge ──────────────────────────────────────────────────────────────────────
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color textColor;
+
+  const _Badge({
+    required this.label,
+    required this.color,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: textColor,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Card tile ──────────────────────────────────────────────────────────────────
+
+class _CardTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _CardTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Icon(icon, color: cs.onSurfaceVariant, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sponsor status ─────────────────────────────────────────────────────────────
 
 class _SponsorStatusSection extends StatefulWidget {
   final LocalUser user;
@@ -294,46 +406,60 @@ class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
     }
 
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
-    if (_confirmedAlias != null) {
-      return Column(
-        children: [
-          const Divider(),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.volunteer_activism_outlined),
-            title: const Text('Your sponsor'),
-            subtitle: Text(_confirmedAlias!),
-            trailing: TextButton(
-              onPressed: _removeConfirmed,
-              child: Text('Remove',
-                  style: TextStyle(color: theme.colorScheme.error)),
-            ),
-          ),
-          const Divider(),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        const Divider(),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.hourglass_top_outlined,
-              color: theme.colorScheme.onSurfaceVariant),
-          title: Text('Waiting for ${_pending!.sponsorAlias} to accept'),
-          subtitle: const Text('Sponsor request pending'),
-          trailing: TextButton(
-            onPressed: _rescindPending,
-            child: const Text('Rescind'),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            children: [
+              Icon(
+                _confirmedAlias != null
+                    ? Icons.volunteer_activism_outlined
+                    : Icons.hourglass_top_outlined,
+                color: cs.onSurfaceVariant,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _confirmedAlias != null
+                          ? 'Your sponsor'
+                          : 'Sponsor request pending',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _confirmedAlias ?? _pending!.sponsorAlias,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed:
+                    _confirmedAlias != null ? _removeConfirmed : _rescindPending,
+                style: TextButton.styleFrom(foregroundColor: cs.error),
+                child: Text(_confirmedAlias != null ? 'Remove' : 'Rescind'),
+              ),
+            ],
           ),
         ),
-        const Divider(),
-      ],
+      ),
     );
   }
 }
+
+// ── Apprentice list ────────────────────────────────────────────────────────────
 
 class _ApprenticeListSection extends StatefulWidget {
   final LocalUser user;
@@ -356,7 +482,10 @@ class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
   Future<void> _load() async {
     try {
       final list = await SponsorService().getApprentices(widget.user.userId!);
-      if (mounted) setState(() { _apprentices = list; _loaded = true; });
+      if (mounted) setState(() {
+        _apprentices = list;
+        _loaded = true;
+      });
     } catch (_) {
       if (mounted) setState(() => _loaded = true);
     }
@@ -364,7 +493,8 @@ class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
 
   Future<void> _remove(GroupMember apprentice) async {
     try {
-      await SponsorService().removeApprentice(widget.user.userId!, apprentice.id);
+      await SponsorService().removeApprentice(
+          widget.user.userId!, apprentice.id);
       if (mounted) setState(() => _apprentices.remove(apprentice));
     } catch (e) {
       if (mounted) {
@@ -380,33 +510,65 @@ class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
     if (!_loaded || _apprentices.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text('People you sponsor',
-              style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  letterSpacing: 1.1)),
-        ),
-        ..._apprentices.map((a) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person_outline),
-              title: Text(a.alias),
-              subtitle: Text(a.role),
-              trailing: TextButton(
-                onPressed: () => _remove(a),
-                child: Text('Remove',
-                    style: TextStyle(color: theme.colorScheme.error)),
+    final cs = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Text(
+                'PEOPLE YOU SPONSOR',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-            )),
-        const Divider(),
-      ],
+            ),
+            ..._apprentices.map((a) => Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline,
+                          size: 20, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(a.alias,
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w500)),
+                            Text(a.role,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _remove(a),
+                        style:
+                            TextButton.styleFrom(foregroundColor: cs.error),
+                        child: const Text('Remove'),
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 }
+
+// ── Debug user switcher ────────────────────────────────────────────────────────
 
 class _DebugUserSwitcher extends StatefulWidget {
   final void Function(LocalUser) onSwitch;
@@ -418,17 +580,17 @@ class _DebugUserSwitcher extends StatefulWidget {
 
 class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
   static const _seedUsers = [
-    (alias: 'Alice',  phone: '+44700000001'),
-    (alias: 'Bob',    phone: '+44700000002'),
+    (alias: 'Alice', phone: '+44700000001'),
+    (alias: 'Bob', phone: '+44700000002'),
     (alias: 'Marcus', phone: '+44700000005'),
-    (alias: 'Carol',  phone: '+44700000003'),
-    (alias: 'Dan',    phone: '+44700000004'),
+    (alias: 'Carol', phone: '+44700000003'),
+    (alias: 'Dan', phone: '+44700000004'),
     (alias: 'Sophie', phone: '+44700000006'),
-    (alias: 'Eve',    phone: '+1200000001'),
-    (alias: 'Frank',  phone: '+1200000002'),
-    (alias: 'Grace',  phone: '+1200000003'),
-    (alias: 'Henry',  phone: '+44161000001'),
-    (alias: 'Isla',   phone: '+44161000002'),
+    (alias: 'Eve', phone: '+1200000001'),
+    (alias: 'Frank', phone: '+1200000002'),
+    (alias: 'Grace', phone: '+1200000003'),
+    (alias: 'Henry', phone: '+44161000001'),
+    (alias: 'Isla', phone: '+44161000002'),
   ];
 
   String? _loading;
@@ -438,7 +600,8 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
     try {
       final apiUser = await AuthService().login(phone, 'password');
       final localUser = await LocalStorageService().saveRegistration(
-        apiUser.id, apiUser.alias,
+        apiUser.id,
+        apiUser.alias,
         groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
         role: apiUser.role,
         sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
@@ -477,10 +640,13 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
             return ActionChip(
               label: isLoading
                   ? const SizedBox(
-                      width: 14, height: 14,
+                      width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : Text(u.alias),
-              onPressed: _loading != null ? null : () => _loginAs(u.alias, u.phone),
+              onPressed: _loading != null
+                  ? null
+                  : () => _loginAs(u.alias, u.phone),
             );
           }).toList(),
         ),

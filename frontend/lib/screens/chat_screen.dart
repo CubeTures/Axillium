@@ -58,6 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
   _ChatMode _mode = _ChatMode.group;
   bool _loading = false;
   bool _sending = false;
+  int _onlineCount = 0;
 
   int get _groupId => widget.user.groupId ?? 0;
   int get _userId => widget.user.userId ?? 0;
@@ -319,10 +320,96 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_currentTitle),
-          const SizedBox(width: 4),
+          Text(
+            _currentTitle,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(width: 2),
           const Icon(Icons.arrow_drop_down, size: 20),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isGroup = _mode == _ChatMode.group;
+    final canEditPrompt =
+        _mode == _ChatMode.weeklyPrompt && _canSetPrompt.contains(_rank);
+
+    return Material(
+      elevation: 3,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(28),
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primaryContainer,
+              colorScheme.secondaryContainer,
+            ],
+          ),
+        ),
+        child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 12, 6),
+        child: Row(
+          children: [
+            // Left: title + online count
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTitleDropdown(),
+                  const SizedBox(height: 1),
+                  Text(
+                    '$_onlineCount online',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer
+                              .withValues(alpha: 0.7),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right: inline action icons
+            if (isGroup) ...[
+              IconButton(
+                icon: const Icon(Icons.calendar_month_outlined),
+                tooltip: 'Meetings',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MeetingsScreen(
+                      user: widget.user,
+                      groupId: _groupId,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.people_outline),
+                tooltip: 'Members',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => MembersScreen(groupId: _groupId)),
+                ),
+              ),
+            ] else if (canEditPrompt)
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Set prompt',
+                onPressed: _openSetPromptSheet,
+              ),
+          ],
+        ),
+      ),
       ),
     );
   }
@@ -411,53 +498,95 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildWeeklyPromptBody(BuildContext context) {
+  Widget _buildWeeklyPromptBody(BuildContext context, double topPadding) {
+    final headerOffset = topPadding + 88.0;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    const halfBarHeight = 32.0;
+    final solidBottomHeight = safeBottom + halfBarHeight;
+
+    final inputWidget = _buildWeeklyPromptInput();
+
     if (_loadingPrompt) {
-      return const Center(child: CircularProgressIndicator());
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(
+                  top: headerOffset, bottom: solidBottomHeight + 64),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            height: solidBottomHeight,
+            child: Container(color: Theme.of(context).scaffoldBackgroundColor),
+          ),
+          Positioned(bottom: 0, left: 0, right: 0, child: inputWidget),
+        ],
+      );
     }
-    return Column(
+
+    return Stack(
       children: [
-        _buildPromptCard(context),
-        Expanded(
-          child: _promptResponses.isEmpty && !_loadingMoreResponses
-              ? Center(
-                  child: Text(
-                    _prompt == null
-                        ? 'Responses will appear here once a prompt is set.'
-                        : 'No responses yet. Be the first to share.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
+        Positioned.fill(
+          child: Column(
+            children: [
+              SizedBox(height: headerOffset),
+              _buildPromptCard(context),
+              Expanded(
+                child: _promptResponses.isEmpty && !_loadingMoreResponses
+                    ? Center(
+                        child: Text(
+                          _prompt == null
+                              ? 'Responses will appear here once a prompt is set.'
+                              : 'No responses yet. Be the first to share.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                         ),
-                  ),
-                )
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _promptResponses.length +
-                      (_loadingMoreResponses ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _promptResponses.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final r = _promptResponses[index];
-                    return _MessageBubble(
-                      message: _UnifiedMessage(
-                        senderId: r.userId,
-                        alias: r.userAlias,
-                        role: r.userRole,
-                        content: r.content,
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.fromLTRB(
+                            8, 8, 8, solidBottomHeight + 8),
+                        itemCount: _promptResponses.length +
+                            (_loadingMoreResponses ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == _promptResponses.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final r = _promptResponses[index];
+                          return _MessageBubble(
+                            message: _UnifiedMessage(
+                              senderId: r.userId,
+                              alias: r.userAlias,
+                              role: r.userRole,
+                              content: r.content,
+                            ),
+                            isMe: r.userId == _userId,
+                          );
+                        },
                       ),
-                      isMe: r.userId == _userId,
-                    );
-                  },
-                ),
+              ),
+              SizedBox(height: solidBottomHeight),
+            ],
+          ),
         ),
-        _buildWeeklyPromptInput(),
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          height: solidBottomHeight,
+          child: Container(color: Theme.of(context).scaffoldBackgroundColor),
+        ),
+        Positioned(bottom: 0, left: 0, right: 0, child: inputWidget),
       ],
     );
   }
@@ -498,65 +627,44 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    final topPadding = MediaQuery.of(context).padding.top;
+    // Solid bg covers status bar + top half of the ~60px header pill
+    final headerBgHeight = topPadding + 8 + 30.0;
+
     return Scaffold(
-      appBar: AppBar(
-        title: _buildTitleDropdown(),
-        actions: [
-          if (_mode == _ChatMode.group) ...[
-            IconButton(
-              icon: const Icon(Icons.calendar_month_outlined),
-              tooltip: 'Meetings',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MeetingsScreen(
-                    user: widget.user,
-                    groupId: _groupId,
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.people_outline),
-              tooltip: 'Members',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => MembersScreen(groupId: _groupId)),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loading ? null : _loadGroupMessages,
-            ),
-          ] else if (_mode == _ChatMode.weeklyPrompt) ...[
-            if (_canSetPrompt.contains(_rank))
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Set prompt',
-                onPressed: _openSetPromptSheet,
-              ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadingPrompt ? null : _loadWeeklyPrompt,
-            ),
-          ] else ...[
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: (_loading || _activeDmTarget == null)
-                  ? null
-                  : () => _loadDmMessages(_activeDmTarget!),
-            ),
-          ],
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          _mode == _ChatMode.weeklyPrompt
+              ? _buildWeeklyPromptBody(context, topPadding)
+              : _buildGroupOrDmBody(context, topPadding),
+          // Header background: solid from top down to halfway through the pill
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: headerBgHeight,
+            child: Container(
+                color: Theme.of(context).scaffoldBackgroundColor),
+          ),
+          Positioned(
+            top: topPadding + 8,
+            left: 16,
+            right: 16,
+            child: _buildFloatingHeader(context),
+          ),
         ],
       ),
-      body: _mode == _ChatMode.weeklyPrompt
-          ? _buildWeeklyPromptBody(context)
-          : _buildGroupOrDmBody(context),
     );
   }
 
-  Widget _buildGroupOrDmBody(BuildContext context) {
+  Widget _buildGroupOrDmBody(BuildContext context, double topPadding) {
+    final headerOffset = topPadding + 88.0;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    // Solid bg covers bottom half of the ~64px input bar + safe area
+    const halfBarHeight = 32.0;
+    final solidBottomHeight = safeBottom + halfBarHeight;
+
     final messages = _mode == _ChatMode.group
         ? _groupMessages
             .map((m) => _UnifiedMessage(
@@ -575,16 +683,33 @@ class _ChatScreenState extends State<ChatScreen> {
                 ))
             .toList();
 
-    return Column(
+    final inputWidget = _userId == 0
+        ? _AnonBanner(text: 'Register to send messages.')
+        : _InputBar(
+            controller: _textController,
+            onSend: _send,
+            sending: _sending,
+          );
+
+    return Stack(
       children: [
-        Expanded(
+        Positioned.fill(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? Padding(
+                  padding: EdgeInsets.only(
+                      top: headerOffset, bottom: solidBottomHeight + 64),
+                  child: const Center(child: CircularProgressIndicator()),
+                )
               : messages.isEmpty
-                  ? const Center(child: Text('No messages yet.'))
+                  ? Padding(
+                      padding: EdgeInsets.only(
+                          top: headerOffset, bottom: solidBottomHeight + 64),
+                      child: const Center(child: Text('No messages yet.')),
+                    )
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.fromLTRB(
+                          8, headerOffset, 8, solidBottomHeight + 8),
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final m = messages[index];
@@ -595,13 +720,22 @@ class _ChatScreenState extends State<ChatScreen> {
                       },
                     ),
         ),
-        _userId == 0
-            ? _AnonBanner(text: 'Register to send messages.')
-            : _InputBar(
-                controller: _textController,
-                onSend: _send,
-                sending: _sending,
-              ),
+        // Bottom solid block: covers only the bottom half of the bar area
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: solidBottomHeight,
+          child: Container(
+              color: Theme.of(context).scaffoldBackgroundColor),
+        ),
+        // Input bar on top
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: inputWidget,
+        ),
       ],
     );
   }
@@ -614,11 +748,13 @@ class _UnifiedMessage {
   final String alias;
   final String role;
   final String content;
+  final String? profilePicture;
   _UnifiedMessage({
     required this.senderId,
     required this.alias,
     required this.role,
     required this.content,
+    this.profilePicture,
   });
 }
 
@@ -664,58 +800,106 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
+    final bubble = Container(
+      margin: EdgeInsets.only(
+        top: 4,
+        bottom: 4,
+        left: isMe ? 8 : 4,
+        right: isMe ? 16 : 8,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.72,
+      ),
+      decoration: BoxDecoration(
+        color: isMe ? const Color(0xFFFCE4EC) : colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isMe
+            ? [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.08),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isMe)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message.alias,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                  if (message.role == 'leader') ...[
+                    const SizedBox(width: 4),
+                    _RoleBadge(label: 'Leader', color: colorScheme.primary),
+                  ] else if (message.role == 'sponsor') ...[
+                    const SizedBox(width: 4),
+                    _RoleBadge(
+                        label: 'Sponsor', color: colorScheme.secondary),
+                  ],
+                ],
+              ),
+            ),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: isMe ? const Color(0xFF4A1428) : colorScheme.onSecondaryContainer,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isMe) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: bubble,
+      );
+    }
+
+    // Non-me: avatar + bubble
+    final hasPhoto = message.profilePicture != null;
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          color: isMe
-              ? colorScheme.primaryContainer
-              : colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isMe)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      message.alias,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundImage:
+                  hasPhoto ? NetworkImage(message.profilePicture!) : null,
+              backgroundColor: colorScheme.secondaryContainer,
+              child: hasPhoto
+                  ? null
+                  : Text(
+                      message.alias.isNotEmpty
+                          ? message.alias[0].toUpperCase()
+                          : '?',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSecondaryContainer,
                       ),
                     ),
-                    if (message.role == 'leader') ...[
-                      const SizedBox(width: 4),
-                      _RoleBadge(label: 'Leader', color: colorScheme.primary),
-                    ] else if (message.role == 'sponsor') ...[
-                      const SizedBox(width: 4),
-                      _RoleBadge(
-                          label: 'Sponsor', color: colorScheme.secondary),
-                    ],
-                  ],
-                ),
-              ),
-            Text(
-              message.content,
-              style: TextStyle(
-                color: isMe
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSecondaryContainer,
-              ),
             ),
-          ],
-        ),
+          ),
+          bubble,
+        ],
       ),
     );
   }
@@ -759,36 +943,52 @@ class _InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => onSend(),
-                decoration: const InputDecoration(
-                  hintText: 'Message...',
-                  border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(32),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => onSend(),
+                  decoration: const InputDecoration(
+                    hintText: 'Message...',
+                    border: InputBorder.none,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              icon: sending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
-              onPressed: sending ? null : onSend,
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: FilledButton(
+                  onPressed: sending ? null : onSend,
+                  style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(12),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: sending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send, size: 20),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -801,28 +1001,43 @@ class _DisabledInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                enabled: false,
-                decoration: InputDecoration(
-                  hintText: hint,
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(32),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  enabled: false,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              icon: const Icon(Icons.send),
-              onPressed: null,
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: FilledButton(
+                  onPressed: null,
+                  style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(12),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Icon(Icons.send, size: 20),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
