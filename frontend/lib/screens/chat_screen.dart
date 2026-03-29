@@ -574,14 +574,24 @@ class _ChatScreenState extends State<ChatScreen> {
                             );
                           }
                           final r = _promptResponses[index];
-                          return _MessageBubble(
-                            message: _UnifiedMessage(
-                              senderId: r.userId,
-                              alias: r.userAlias,
-                              role: r.userRole,
-                              content: r.content,
-                            ),
-                            isMe: r.userId == _userId,
+                          final showSep = index == 0 ||
+                              !_isSameDay(_promptResponses[index - 1].createdAt,
+                                  r.createdAt);
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (showSep) _DateSeparator(date: r.createdAt),
+                              _MessageBubble(
+                                message: _UnifiedMessage(
+                                  senderId: r.userId,
+                                  alias: r.userAlias,
+                                  role: r.userRole,
+                                  content: r.content,
+                                  createdAt: r.createdAt,
+                                ),
+                                isMe: r.userId == _userId,
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -681,6 +691,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   alias: m.alias,
                   role: m.senderRole,
                   content: m.content,
+                  createdAt: m.createdAt,
                 ))
             .toList()
         : _dmMessages
@@ -689,6 +700,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   alias: m.senderAlias,
                   role: m.senderRole,
                   content: m.content,
+                  createdAt: m.createdAt,
                 ))
             .toList();
 
@@ -722,9 +734,16 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final m = messages[index];
-                        return _MessageBubble(
-                          message: m,
-                          isMe: m.senderId == _userId,
+                        final showSep = index == 0 ||
+                            !_isSameDay(
+                                messages[index - 1].createdAt, m.createdAt);
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (showSep) _DateSeparator(date: m.createdAt),
+                            _MessageBubble(
+                                message: m, isMe: m.senderId == _userId),
+                          ],
                         );
                       },
                     ),
@@ -757,12 +776,14 @@ class _UnifiedMessage {
   final String alias;
   final String role;
   final String content;
+  final DateTime createdAt;
   final String? profilePicture;
   _UnifiedMessage({
     required this.senderId,
     required this.alias,
     required this.role,
     required this.content,
+    required this.createdAt,
     this.profilePicture,
   });
 }
@@ -867,6 +888,19 @@ class _MessageBubble extends StatelessWidget {
               color: isMe ? const Color(0xFF4A1428) : colorScheme.onSecondaryContainer,
             ),
           ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+            child: Text(
+              _formatMessageTime(message.createdAt),
+              style: TextStyle(
+                fontSize: 10,
+                color: isMe
+                    ? const Color(0xFF4A1428).withValues(alpha: 0.5)
+                    : colorScheme.onSecondaryContainer.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -913,6 +947,73 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
+
+// ── Date/time helpers ─────────────────────────────────────────────────────────
+
+bool _isSameDay(DateTime a, DateTime b) {
+  final la = a.toLocal();
+  final lb = b.toLocal();
+  return la.year == lb.year && la.month == lb.month && la.day == lb.day;
+}
+
+String _formatMessageTime(DateTime dt) {
+  final t = dt.toLocal();
+  final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final minute = t.minute.toString().padLeft(2, '0');
+  final period = t.hour < 12 ? 'AM' : 'PM';
+  return '$hour:$minute $period';
+}
+
+String _formatDaySeparator(DateTime dt) {
+  final t = dt.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final msgDay = DateTime(t.year, t.month, t.day);
+  final diff = today.difference(msgDay).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  if (diff < 7) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[t.weekday - 1];
+  }
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[t.month - 1]} ${t.day}';
+}
+
+// ── Date separator ────────────────────────────────────────────────────────────
+
+class _DateSeparator extends StatelessWidget {
+  final DateTime date;
+  const _DateSeparator({required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _formatDaySeparator(date),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Role badge ────────────────────────────────────────────────────────────────
 
 class _RoleBadge extends StatelessWidget {
   final String label;
