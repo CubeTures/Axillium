@@ -69,4 +69,13 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		wp.GET("/responses", handlers.GetPromptResponses(db))
 		wp.POST("/responses", handlers.PostPromptResponse(db))
 	}
+
+	crisis := api.Group("/crisis")
+	{
+		crisis.POST("", handlers.TriggerCrisis(db))
+		crisis.GET("/active", handlers.GetActiveCrisis(db))
+		crisis.POST("/respond", handlers.RespondToCrisis(db))
+		crisis.POST("/:id/escalate", handlers.EscalateCrisis(db))
+		crisis.POST("/:id/cancel", handlers.CancelCrisis(db))
+	}
 }
