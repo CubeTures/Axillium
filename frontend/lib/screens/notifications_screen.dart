@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/app_notification.dart';
 import '../models/local_user.dart';
+import '../services/crisis_service.dart';
 import '../services/notification_service.dart';
 import '../services/sponsor_service.dart';
 
@@ -74,6 +75,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() => _notifications.remove(n));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Request from ${n.senderAlias} declined.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _respondToCrisis(AppNotification n) async {
+    if (widget.user.userId == null) return;
+    try {
+      await CrisisService().respond(
+        crisisUserId: n.senderId,
+        responderId: widget.user.userId!,
+        responderAlias: widget.user.alias,
+      );
+      await _service.markRead(widget.user.userId!, n.id);
+      if (mounted) {
+        setState(() => _notifications.remove(n));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('${n.senderAlias} has been notified you\'re on your way.')),
         );
       }
     } catch (e) {
@@ -219,6 +246,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 notification: n,
                 onAccept: _acceptSponsorRequest,
                 onDecline: _declineSponsorRequest,
+                onCrisisRespond: _respondToCrisis,
               ),
             ),
           );
@@ -232,11 +260,13 @@ class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
   final Future<void> Function(AppNotification) onAccept;
   final Future<void> Function(AppNotification) onDecline;
+  final Future<void> Function(AppNotification) onCrisisRespond;
 
   const _NotificationTile({
     required this.notification,
     required this.onAccept,
     required this.onDecline,
+    required this.onCrisisRespond,
   });
 
   IconData get _icon {
@@ -247,6 +277,10 @@ class _NotificationTile extends StatelessWidget {
         return Icons.handshake_outlined;
       case 'relapse_alert':
         return Icons.warning_amber_outlined;
+      case 'crisis_alert':
+        return Icons.emergency_outlined;
+      case 'crisis_responded':
+        return Icons.favorite_outlined;
       default:
         return Icons.notifications_outlined;
     }
@@ -255,7 +289,9 @@ class _NotificationTile extends StatelessWidget {
   Color _iconColor(ColorScheme cs) {
     switch (notification.type) {
       case 'relapse_alert':
+      case 'crisis_alert':
         return cs.error;
+      case 'crisis_responded':
       case 'sponsor_accepted':
         return cs.primary;
       default:
@@ -278,6 +314,7 @@ class _NotificationTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isSponsorRequest = notification.type == 'sponsor_request';
+    final isCrisisAlert = notification.type == 'crisis_alert';
 
     return Material(
       color: cs.surfaceContainerLow,
@@ -322,6 +359,18 @@ class _NotificationTile extends StatelessWidget {
                           child: const Text('Decline'),
                         ),
                       ],
+                    ),
+                  ],
+                  if (isCrisisAlert) ...[
+                    const SizedBox(height: 10),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.favorite_outlined, size: 16),
+                      label: const Text("I'm here"),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.error,
+                        foregroundColor: cs.onError,
+                      ),
+                      onPressed: () => onCrisisRespond(notification),
                     ),
                   ],
                 ],
