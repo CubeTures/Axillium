@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/app_notification.dart';
 import '../models/local_user.dart';
+import '../services/crisis_service.dart';
 import '../services/notification_service.dart';
 import '../services/sponsor_service.dart';
 
@@ -30,7 +31,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() => _loading = false);
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final items = await _service.getNotifications(widget.user.userId!);
       if (mounted) setState(() => _notifications = items);
@@ -58,7 +62,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
@@ -76,7 +82,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _respondToCrisis(AppNotification n) async {
+    if (widget.user.userId == null) return;
+    try {
+      await CrisisService().respond(
+        crisisUserId: n.senderId,
+        responderId: widget.user.userId!,
+        responderAlias: widget.user.alias,
+      );
+      // Mark the notification read and remove it from the list
+      await _service.markRead(widget.user.userId!, n.id);
+      if (mounted) {
+        setState(() => _notifications.remove(n));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${n.senderAlias} has been notified you\'re on your way.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
@@ -143,16 +178,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.only(
+            top: 8, bottom: 8 + MediaQuery.of(context).padding.bottom),
         itemCount: _notifications.length,
         separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) =>
-            _NotificationTile(
-              notification: _notifications[index],
-              onDismiss: _dismiss,
-              onAccept: _acceptSponsorRequest,
-              onDecline: _declineSponsorRequest,
-            ),
+        itemBuilder: (context, index) => _NotificationTile(
+          notification: _notifications[index],
+          onDismiss: _dismiss,
+          onAccept: _acceptSponsorRequest,
+          onDecline: _declineSponsorRequest,
+          onCrisisRespond: _respondToCrisis,
+        ),
       ),
     );
   }
@@ -163,12 +199,14 @@ class _NotificationTile extends StatelessWidget {
   final Future<void> Function(AppNotification) onDismiss;
   final Future<void> Function(AppNotification) onAccept;
   final Future<void> Function(AppNotification) onDecline;
+  final Future<void> Function(AppNotification) onCrisisRespond;
 
   const _NotificationTile({
     required this.notification,
     required this.onDismiss,
     required this.onAccept,
     required this.onDecline,
+    required this.onCrisisRespond,
   });
 
   IconData get _icon {
@@ -179,6 +217,10 @@ class _NotificationTile extends StatelessWidget {
         return Icons.handshake_outlined;
       case 'relapse_alert':
         return Icons.warning_amber_outlined;
+      case 'crisis_alert':
+        return Icons.emergency_outlined;
+      case 'crisis_responded':
+        return Icons.favorite_outlined;
       default:
         return Icons.notifications_outlined;
     }
@@ -188,7 +230,9 @@ class _NotificationTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     switch (notification.type) {
       case 'relapse_alert':
+      case 'crisis_alert':
         return cs.error;
+      case 'crisis_responded':
       case 'sponsor_accepted':
         return cs.primary;
       default:
@@ -199,6 +243,7 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSponsorRequest = notification.type == 'sponsor_request';
+    final isCrisisAlert = notification.type == 'crisis_alert';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -219,7 +264,8 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   _formatDate(notification.createdAt),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                 ),
                 if (isSponsorRequest) ...[
@@ -238,10 +284,24 @@ class _NotificationTile extends StatelessWidget {
                     ],
                   ),
                 ],
+                if (isCrisisAlert) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.favorite_outlined, size: 16),
+                    label: const Text("I'm here"),
+                    style: FilledButton.styleFrom(
+                      backgroundColor:
+                          Theme.of(context).colorScheme.error,
+                      foregroundColor:
+                          Theme.of(context).colorScheme.onError,
+                    ),
+                    onPressed: () => onCrisisRespond(notification),
+                  ),
+                ],
               ],
             ),
           ),
-          if (!isSponsorRequest)
+          if (!isSponsorRequest && !isCrisisAlert)
             IconButton(
               icon: const Icon(Icons.close, size: 18),
               tooltip: 'Dismiss',
