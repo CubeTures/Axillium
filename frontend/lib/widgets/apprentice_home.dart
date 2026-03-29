@@ -71,5 +71,13 @@ List<Widget> apprenticeHomeCards({
       actionLabel: 'Open community',
       onAction: () => onNavigate(2),
     ),
+    HomeCard(
+      icon: Icons.forum_outlined,
+      title: 'Weekly prompt',
+      body: 'Each week a new question is posted for the whole community. '
+          'Share your response and read what others are going through.',
+      actionLabel: 'Join the discussion',
+      onAction: () => onNavigate(1),
+    ),
   ];
 }

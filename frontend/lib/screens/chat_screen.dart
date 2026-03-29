@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import '../models/direct_message.dart';
 import '../models/local_user.dart';
 import '../models/message.dart';
+import '../models/prompt_response.dart';
+import '../models/weekly_prompt.dart';
 import '../services/chat_service.dart';
 import '../services/dm_service.dart';
 import '../services/sponsor_service.dart';
+import '../services/weekly_prompt_service.dart';
+import 'meetings_screen.dart';
 import 'members_screen.dart';
 
-enum _ChatMode { group, dm }
+enum _ChatMode { group, weeklyPrompt, dm }
+
+const _canSetPrompt = {'sponsor', 'leader', 'influencer'};
+const _canRespond = {'apprentice', 'sponsor', 'leader', 'influencer', 'graduated'};
 
 class _DmTarget {
   final int userId;
@@ -28,6 +35,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _chatService = ChatService();
   final _dmService = DmService();
+  final _promptService = WeeklyPromptService();
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -39,18 +47,28 @@ class _ChatScreenState extends State<ChatScreen> {
   List<_DmTarget> _dmTargets = [];
   _DmTarget? _activeDmTarget;
 
+  // Weekly prompt state
+  WeeklyPrompt? _prompt;
+  List<PromptResponse> _promptResponses = [];
+  bool _loadingPrompt = false;
+  bool _loadingMoreResponses = false;
+  int _promptPage = 1;
+  bool _promptHasMore = true;
+
   _ChatMode _mode = _ChatMode.group;
   bool _loading = false;
   bool _sending = false;
 
   int get _groupId => widget.user.groupId ?? 0;
   int get _userId => widget.user.userId ?? 0;
+  String get _rank => widget.user.rank;
 
   @override
   void initState() {
     super.initState();
     _loadGroupMessages();
     _loadDmTargets();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
@@ -60,13 +78,22 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  void _onScroll() {
+    if (_mode != _ChatMode.weeklyPrompt) return;
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_loadingMoreResponses &&
+        _promptHasMore) {
+      _loadMorePromptResponses();
+    }
+  }
+
   Future<void> _loadDmTargets() async {
     final userId = _userId;
     if (userId == 0) return;
 
     final targets = <_DmTarget>[];
 
-    // Apprentice: can DM their sponsor.
     if (widget.user.sponsorId != null) {
       final sponsor =
           await SponsorService().getUserBasic(widget.user.sponsorId!);
@@ -79,7 +106,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
 
-    // Sponsor/leader: can DM each apprentice.
     if (widget.user.rank == 'sponsor' || widget.user.rank == 'leader') {
       final apprentices = await SponsorService().getApprentices(userId);
       for (final a in apprentices) {
@@ -129,6 +155,49 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _loadWeeklyPrompt() async {
+    setState(() {
+      _loadingPrompt = true;
+      _promptResponses = [];
+      _promptPage = 1;
+      _promptHasMore = true;
+    });
+    try {
+      final prompt = await _promptService.getCurrentPrompt();
+      setState(() => _prompt = prompt);
+      await _loadMorePromptResponses();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load prompt: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPrompt = false);
+    }
+  }
+
+  Future<void> _loadMorePromptResponses() async {
+    if (_loadingMoreResponses || !_promptHasMore) return;
+    setState(() => _loadingMoreResponses = true);
+    try {
+      final batch = await _promptService.getResponses(page: _promptPage);
+      setState(() {
+        _promptResponses.addAll(batch);
+        _promptPage++;
+        if (batch.length < 20) _promptHasMore = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load responses: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMoreResponses = false);
+    }
+  }
+
   void _switchMode(_ChatMode mode, {_DmTarget? dmTarget}) {
     setState(() {
       _mode = mode;
@@ -136,6 +205,8 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     if (mode == _ChatMode.group) {
       _loadGroupMessages();
+    } else if (mode == _ChatMode.weeklyPrompt) {
+      _loadWeeklyPrompt();
     } else if (dmTarget != null) {
       _loadDmMessages(dmTarget);
     }
@@ -151,6 +222,14 @@ class _ChatScreenState extends State<ChatScreen> {
         final msg = await _chatService.sendMessage(
             _groupId, _userId, widget.user.alias, content);
         setState(() => _groupMessages.add(msg));
+      } else if (_mode == _ChatMode.weeklyPrompt) {
+        final response = await _promptService.postResponse(
+          userId: _userId,
+          userAlias: widget.user.alias,
+          userRole: _rank,
+          content: content,
+        );
+        setState(() => _promptResponses.add(response));
       } else if (_activeDmTarget != null) {
         final msg = await _dmService.sendDM(
           senderId: _userId,
@@ -164,7 +243,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not send message: $e')),
+          SnackBar(content: Text('$e')),
         );
       }
     } finally {
@@ -185,19 +264,24 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String get _currentTitle {
-    if (_mode == _ChatMode.group) return 'Group Chat';
-    return _activeDmTarget?.label ?? 'Direct Message';
+    switch (_mode) {
+      case _ChatMode.group:
+        return 'Group Chat';
+      case _ChatMode.weeklyPrompt:
+        return 'Weekly Prompt';
+      case _ChatMode.dm:
+        return _activeDmTarget?.label ?? 'Direct Message';
+    }
   }
 
   Widget _buildTitleDropdown() {
-    final hasDmTargets = _dmTargets.isNotEmpty;
-    if (!hasDmTargets) return Text(_currentTitle);
-
     return PopupMenuButton<String>(
       tooltip: 'Switch chat',
       onSelected: (key) {
         if (key == '__group__') {
           _switchMode(_ChatMode.group);
+        } else if (key == '__weekly__') {
+          _switchMode(_ChatMode.weeklyPrompt);
         } else {
           final target = _dmTargets.firstWhere((t) => '${t.userId}' == key);
           _switchMode(_ChatMode.dm, dmTarget: target);
@@ -212,15 +296,25 @@ class _ChatScreenState extends State<ChatScreen> {
             const Text('Group Chat'),
           ]),
         ),
-        const PopupMenuDivider(),
-        ..._dmTargets.map((t) => PopupMenuItem(
-              value: '${t.userId}',
-              child: Row(children: [
-                const Icon(Icons.person_outline, size: 18),
-                const SizedBox(width: 8),
-                Text(t.label),
-              ]),
-            )),
+        PopupMenuItem(
+          value: '__weekly__',
+          child: Row(children: [
+            const Icon(Icons.forum_outlined, size: 18),
+            const SizedBox(width: 8),
+            const Text('Weekly Prompt'),
+          ]),
+        ),
+        if (_dmTargets.isNotEmpty) ...[
+          const PopupMenuDivider(),
+          ..._dmTargets.map((t) => PopupMenuItem(
+                value: '${t.userId}',
+                child: Row(children: [
+                  const Icon(Icons.person_outline, size: 18),
+                  const SizedBox(width: 8),
+                  Text(t.label),
+                ]),
+              )),
+        ],
       ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -232,6 +326,157 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  // ── Weekly prompt UI ───────────────────────────────────────────────────────
+
+  void _openSetPromptSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SetPromptSheet(
+        user: widget.user,
+        service: _promptService,
+        existingPrompt: _prompt,
+        onPromptSet: (prompt) {
+          setState(() {
+            _prompt = prompt;
+            _promptResponses = [];
+            _promptPage = 1;
+            _promptHasMore = true;
+          });
+          _loadMorePromptResponses();
+        },
+      ),
+    );
+  }
+
+  Widget _buildPromptCard(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (_prompt == null) {
+      return Card(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'No prompt set yet this week.',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              if (_canSetPrompt.contains(_rank)) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonal(
+                    onPressed: _openSetPromptSheet,
+                    child: const Text('Set this week\'s prompt'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      color: colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _prompt!.promptText,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Asked by ${_prompt!.setByAlias} · '
+              '${_prompt!.setByRole[0].toUpperCase()}${_prompt!.setByRole.substring(1)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyPromptBody(BuildContext context) {
+    if (_loadingPrompt) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return Column(
+      children: [
+        _buildPromptCard(context),
+        Expanded(
+          child: _promptResponses.isEmpty && !_loadingMoreResponses
+              ? Center(
+                  child: Text(
+                    _prompt == null
+                        ? 'Responses will appear here once a prompt is set.'
+                        : 'No responses yet. Be the first to share.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _promptResponses.length +
+                      (_loadingMoreResponses ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _promptResponses.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final r = _promptResponses[index];
+                    return _MessageBubble(
+                      message: _UnifiedMessage(
+                        senderId: r.userId,
+                        alias: r.userAlias,
+                        role: r.userRole,
+                        content: r.content,
+                      ),
+                      isMe: r.userId == _userId,
+                    );
+                  },
+                ),
+        ),
+        _buildWeeklyPromptInput(),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyPromptInput() {
+    if (_userId == 0 || !_canRespond.contains(_rank)) {
+      return _AnonBanner(text: 'Register to join the discussion.');
+    }
+    if (_prompt == null) {
+      return _DisabledInputBar(hint: 'Waiting for this week\'s prompt...');
+    }
+    return _InputBar(
+      controller: _textController,
+      onSend: _send,
+      sending: _sending,
+    );
+  }
+
+  // ── Main build ─────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +498,65 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    return Scaffold(
+      appBar: AppBar(
+        title: _buildTitleDropdown(),
+        actions: [
+          if (_mode == _ChatMode.group) ...[
+            IconButton(
+              icon: const Icon(Icons.calendar_month_outlined),
+              tooltip: 'Meetings',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MeetingsScreen(
+                    user: widget.user,
+                    groupId: _groupId,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.people_outline),
+              tooltip: 'Members',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => MembersScreen(groupId: _groupId)),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loading ? null : _loadGroupMessages,
+            ),
+          ] else if (_mode == _ChatMode.weeklyPrompt) ...[
+            if (_canSetPrompt.contains(_rank))
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Set prompt',
+                onPressed: _openSetPromptSheet,
+              ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadingPrompt ? null : _loadWeeklyPrompt,
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: (_loading || _activeDmTarget == null)
+                  ? null
+                  : () => _loadDmMessages(_activeDmTarget!),
+            ),
+          ],
+        ],
+      ),
+      body: _mode == _ChatMode.weeklyPrompt
+          ? _buildWeeklyPromptBody(context)
+          : _buildGroupOrDmBody(context),
+    );
+  }
+
+  Widget _buildGroupOrDmBody(BuildContext context) {
     final messages = _mode == _ChatMode.group
         ? _groupMessages
             .map((m) => _UnifiedMessage(
@@ -271,67 +575,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 ))
             .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: _buildTitleDropdown(),
-        actions: [
-          if (_mode == _ChatMode.group) ...[
-            IconButton(
-              icon: const Icon(Icons.people_outline),
-              tooltip: 'Members',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => MembersScreen(groupId: _groupId)),
+    return Column(
+      children: [
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : messages.isEmpty
+                  ? const Center(child: Text('No messages yet.'))
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(8),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final m = messages[index];
+                        return _MessageBubble(
+                          message: m,
+                          isMe: m.senderId == _userId,
+                        );
+                      },
+                    ),
+        ),
+        _userId == 0
+            ? _AnonBanner(text: 'Register to send messages.')
+            : _InputBar(
+                controller: _textController,
+                onSend: _send,
+                sending: _sending,
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loading ? null : _loadGroupMessages,
-            ),
-          ] else ...[
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed:
-                  (_loading || _activeDmTarget == null) ? null : () => _loadDmMessages(_activeDmTarget!),
-            ),
-          ],
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : messages.isEmpty
-                    ? const Center(child: Text('No messages yet.'))
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(8),
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) {
-                          final m = messages[index];
-                          return _MessageBubble(
-                            message: m,
-                            isMe: m.senderId == _userId,
-                          );
-                        },
-                      ),
-          ),
-          _userId == 0
-              ? _AnonBanner()
-              : _InputBar(
-                  controller: _textController,
-                  onSend: _send,
-                  sending: _sending,
-                ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-// Unified view model so group messages and DMs render identically.
+// ── Shared view model ─────────────────────────────────────────────────────────
+
 class _UnifiedMessage {
   final int senderId;
   final String alias;
@@ -345,6 +622,8 @@ class _UnifiedMessage {
   });
 }
 
+// ── Message bubble ────────────────────────────────────────────────────────────
+
 class _MessageBubble extends StatelessWidget {
   final _UnifiedMessage message;
   final bool isMe;
@@ -353,7 +632,6 @@ class _MessageBubble extends StatelessWidget {
 
   bool get _isSystemMessage => message.content.startsWith('📋');
 
-  // Rewrites legacy "📋 Checked in today — feeling X." to attribute it.
   String get _systemDisplayText {
     return message.content.replaceFirst(
       'Checked in today',
@@ -466,6 +744,8 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
+// ── Input / banner widgets ────────────────────────────────────────────────────
+
 class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
@@ -515,7 +795,44 @@ class _InputBar extends StatelessWidget {
   }
 }
 
+class _DisabledInputBar extends StatelessWidget {
+  final String hint;
+  const _DisabledInputBar({required this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                enabled: false,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              icon: const Icon(Icons.send),
+              onPressed: null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AnonBanner extends StatelessWidget {
+  final String text;
+  const _AnonBanner({required this.text});
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -524,12 +841,210 @@ class _AnonBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: Text(
-          'Register to send messages.',
+          text,
           textAlign: TextAlign.center,
           style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
+    );
+  }
+}
+
+// ── Set-prompt bottom sheet ───────────────────────────────────────────────────
+
+class _SetPromptSheet extends StatefulWidget {
+  final LocalUser user;
+  final WeeklyPromptService service;
+  final WeeklyPrompt? existingPrompt;
+  final void Function(WeeklyPrompt) onPromptSet;
+
+  const _SetPromptSheet({
+    required this.user,
+    required this.service,
+    required this.existingPrompt,
+    required this.onPromptSet,
+  });
+
+  @override
+  State<_SetPromptSheet> createState() => _SetPromptSheetState();
+}
+
+class _SetPromptSheetState extends State<_SetPromptSheet> {
+  final _controller = TextEditingController();
+  List<String> _suggestions = [];
+  bool _loadingSuggestions = true;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingPrompt != null) {
+      _controller.text = widget.existingPrompt!.promptText;
+    }
+    _loadSuggestions();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSuggestions() async {
+    try {
+      final suggestions =
+          await widget.service.getSuggestions(widget.user.rank);
+      if (mounted) setState(() => _suggestions = suggestions);
+    } catch (_) {
+      // Suggestions are a convenience — silently ignore failures.
+    } finally {
+      if (mounted) setState(() => _loadingSuggestions = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final prompt = await widget.service.setCurrentPrompt(
+        userId: widget.user.userId!,
+        userAlias: widget.user.alias,
+        userRole: widget.user.rank,
+        promptText: text,
+      );
+      if (mounted) {
+        widget.onPromptSet(prompt);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isReplacing = widget.existingPrompt != null;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.8,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  isReplacing
+                      ? 'Replace this week\'s prompt'
+                      : 'Set this week\'s prompt',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _controller,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Write your own prompt...',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '— or pick a suggestion —',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _loadingSuggestions
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _suggestions.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, index) {
+                          final s = _suggestions[index];
+                          return ListTile(
+                            dense: true,
+                            title: Text(s,
+                                style:
+                                    Theme.of(context).textTheme.bodyMedium),
+                            onTap: () =>
+                                setState(() => _controller.text = s),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _submitting ? null : _submit,
+                        child: _submitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white),
+                              )
+                            : const Text('Set Prompt'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

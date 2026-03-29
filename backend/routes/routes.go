@@ -26,6 +26,9 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		groups.GET("/:id/featured-posts", handlers.GetGroupFeaturedPosts(db))
 		groups.POST("/:id/featured-posts", handlers.FeaturePostForGroup(db))
 		groups.DELETE("/:id/featured-posts/:post_id", handlers.UnfeaturePostForGroup(db))
+		groups.GET("/:id/meetings", handlers.GetMeetings(db))
+		groups.POST("/:id/meetings", handlers.CreateMeeting(db))
+		groups.DELETE("/:id/meetings/:meeting_id", handlers.DeleteMeeting(db))
 	}
 
 	api.POST("/check-ins", handlers.CreateCheckIn(db))
@@ -56,5 +59,14 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		posts.GET("", handlers.ListPosts(db))
 		posts.GET("/:id", handlers.GetPost(db))
 		posts.POST("", handlers.CreatePost(db))
+	}
+
+	wp := api.Group("/weekly-prompt")
+	{
+		wp.GET("", handlers.GetCurrentPrompt(db))
+		wp.POST("", handlers.SetCurrentPrompt(db))
+		wp.GET("/suggestions", handlers.GetSuggestedPrompts(db))
+		wp.GET("/responses", handlers.GetPromptResponses(db))
+		wp.POST("/responses", handlers.PostPromptResponse(db))
 	}
 }
