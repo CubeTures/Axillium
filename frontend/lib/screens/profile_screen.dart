@@ -482,10 +482,12 @@ class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
   Future<void> _load() async {
     try {
       final list = await SponsorService().getApprentices(widget.user.userId!);
-      if (mounted) setState(() {
-        _apprentices = list;
-        _loaded = true;
-      });
+      if (mounted) {
+        setState(() {
+          _apprentices = list;
+          _loaded = true;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loaded = true);
     }
@@ -614,7 +616,9 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = null);
+      if (mounted) {
+        setState(() => _loading = null);
+      }
     }
   }
 

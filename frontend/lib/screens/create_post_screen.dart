@@ -92,7 +92,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 64),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

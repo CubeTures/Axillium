@@ -393,7 +393,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.people_outline),
+                icon: const Icon(Icons.group_outlined),
                 tooltip: 'Members',
                 onPressed: () => Navigator.push(
                   context,
@@ -440,8 +440,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildPromptCard(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (_prompt == null) {
-      return Card(
-        margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Material(
+        elevation: 0,
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -466,33 +470,38 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
         ),
+        ),
       );
     }
 
-    return Card(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _prompt!.promptText,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Asked by ${_prompt!.setByAlias} · '
-              '${_prompt!.setByRole[0].toUpperCase()}${_prompt!.setByRole.substring(1)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                  ),
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Material(
+        elevation: 0,
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _prompt!.promptText,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Asked by ${_prompt!.setByAlias} · '
+                '${_prompt!.setByRole[0].toUpperCase()}${_prompt!.setByRole.substring(1)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -554,7 +563,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     : ListView.builder(
                         controller: _scrollController,
                         padding: EdgeInsets.fromLTRB(
-                            8, 8, 8, solidBottomHeight + 8),
+                            4, 8, 4, solidBottomHeight - 84),
                         itemCount: _promptResponses.length +
                             (_loadingMoreResponses ? 1 : 0),
                         itemBuilder: (context, index) {
@@ -709,7 +718,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   : ListView.builder(
                       controller: _scrollController,
                       padding: EdgeInsets.fromLTRB(
-                          8, headerOffset, 8, solidBottomHeight + 8),
+                          16, headerOffset, 16, solidBottomHeight + 48),
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final m = messages[index];
@@ -1214,7 +1223,7 @@ class _SetPromptSheetState extends State<_SetPromptSheet> {
                         controller: scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _suggestions.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (_, index) {
                           final s = _suggestions[index];
                           return ListTile(

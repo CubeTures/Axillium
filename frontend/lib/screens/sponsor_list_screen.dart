@@ -32,7 +32,11 @@ class _SponsorListScreenState extends State<SponsorListScreen> {
       await SponsorService().requestSponsor(widget.userId, sponsor.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request sent to ${sponsor.alias}. Waiting for their acceptance.')),
+          SnackBar(
+            content: Text(
+              'Request sent to ${sponsor.alias}. Waiting for their acceptance.',
+            ),
+          ),
         );
         Navigator.pop(context, null);
       }
@@ -48,8 +52,15 @@ class _SponsorListScreenState extends State<SponsorListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Available Sponsors')),
+      backgroundColor: cs.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
       body: FutureBuilder<List<GroupMember>>(
         future: _future,
         builder: (context, snapshot) {
@@ -57,62 +68,93 @@ class _SponsorListScreenState extends State<SponsorListScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Could not load sponsors: ${snapshot.error}'));
-          }
-          final sponsors = snapshot.data ?? [];
-          if (sponsors.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  'No sponsors are currently available in your group. Check back later.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                  'Could not load sponsors.',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
             );
           }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          final sponsors = snapshot.data ?? [];
+
+          return ListView(
+            padding: EdgeInsets.fromLTRB(
+              20, 0, 20, 24 + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  'Sponsors are experienced members who have opted in to offer guidance. '
-                  'Selecting one sends them a notification — there\'s no pressure on either side.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
+              Text(
+                'Available Sponsors',
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
-              const Divider(),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: sponsors.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final s = sponsors[index];
-                    final isLoading = _requesting == s.id;
-                    return ListTile(
-                      leading: const Icon(Icons.volunteer_activism_outlined),
-                      title: Text(s.alias),
-                      trailing: isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : FilledButton.tonal(
-                              onPressed: _requesting != null ? null : () => _request(s),
-                              child: const Text('Select'),
+              const SizedBox(height: 8),
+              Text(
+                'Sponsors are experienced members who have opted in to offer guidance. '
+                'Selecting one sends them a notification — there\'s no pressure on either side.',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              if (sponsors.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    'No sponsors are currently available in your group. Check back later.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              else
+                ...sponsors.map((s) {
+                  final isLoading = _requesting == s.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Material(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.volunteer_activism_outlined,
+                              color: cs.onSurfaceVariant,
+                              size: 22,
                             ),
-                    );
-                  },
-                ),
-              ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                s.alias,
+                                style: theme.textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            if (isLoading)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            else
+                              FilledButton.tonal(
+                                onPressed: _requesting != null
+                                    ? null
+                                    : () => _request(s),
+                                child: const Text('Select'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
             ],
           );
         },

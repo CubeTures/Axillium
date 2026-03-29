@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/local_user.dart';
 import '../models/post.dart';
 import '../services/post_service.dart';
+import '../widgets/section_label.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
 
@@ -269,7 +270,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
         children: [
           if (featured.isNotEmpty) ...[
-            _SectionLabel(label: 'Featured this week'),
+            SectionLabel(label:'Featured this week'),
             const SizedBox(height: 10),
             ...featured.map((p) => _PostTile(
                   post: p,
@@ -282,7 +283,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ],
           if (rest.isNotEmpty) ...[
             if (featured.isNotEmpty) ...[
-              _SectionLabel(label: 'All stories'),
+              SectionLabel(label:'All stories'),
               const SizedBox(height: 10),
             ],
             ...rest.map((p) => _PostTile(
@@ -295,25 +296,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ],
         ],
       ),
-    );
-  }
-}
-
-// ── Section label ──────────────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
     );
   }
 }

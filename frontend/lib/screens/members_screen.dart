@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/group_member.dart';
 import '../services/chat_service.dart';
+import '../widgets/section_label.dart';
 
 class MembersScreen extends StatefulWidget {
   final int groupId;
@@ -22,8 +23,15 @@ class _MembersScreenState extends State<MembersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Group Members')),
+      backgroundColor: cs.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
       body: FutureBuilder<List<GroupMember>>(
         future: _future,
         builder: (context, snapshot) {
@@ -31,32 +39,63 @@ class _MembersScreenState extends State<MembersScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Could not load members: ${snapshot.error}'));
-          }
-          final members = snapshot.data ?? [];
-          if (members.isEmpty) {
-            return const Center(child: Text('No members found.'));
+            return Center(
+              child: Text(
+                'Could not load members.',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            );
           }
 
-          final leaders = members.where((m) => m.role == 'leader').toList();
-          final sponsors = members.where((m) => m.role == 'sponsor').toList();
+          final members = snapshot.data ?? [];
+          if (members.isEmpty) {
+            return Center(
+              child: Text(
+                'No members found.',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            );
+          }
+
+          final leaders =
+              members.where((m) => m.role == 'leader').toList();
+          final sponsors =
+              members.where((m) => m.role == 'sponsor').toList();
           final others = members
               .where((m) => m.role != 'leader' && m.role != 'sponsor')
               .toList();
 
           return ListView(
+            padding: EdgeInsets.fromLTRB(
+              20, 0, 20, 24 + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
+              Text(
+                'Group Members',
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 20),
               if (leaders.isNotEmpty) ...[
-                _SectionHeader(title: 'Leader', count: leaders.length),
-                for (final m in leaders) _MemberTile(member: m),
+                const SectionLabel(label: 'Leader'),
+                const SizedBox(height: 8),
+                ...leaders.map((m) => _MemberCard(member: m)),
+                const SizedBox(height: 8),
               ],
               if (sponsors.isNotEmpty) ...[
-                _SectionHeader(title: 'Sponsors', count: sponsors.length),
-                for (final m in sponsors) _MemberTile(member: m),
+                const SectionLabel(label: 'Sponsors'),
+                const SizedBox(height: 8),
+                ...sponsors.map((m) => _MemberCard(member: m)),
+                const SizedBox(height: 8),
               ],
               if (others.isNotEmpty) ...[
-                _SectionHeader(title: 'Members', count: others.length),
-                for (final m in others) _MemberTile(member: m),
+                SectionLabel(
+                  label: 'Members (${others.length})',
+                ),
+                const SizedBox(height: 8),
+                ...others.map((m) => _MemberCard(member: m)),
               ],
             ],
           );
@@ -66,41 +105,10 @@ class _MembersScreenState extends State<MembersScreen> {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int count;
-
-  const _SectionHeader({required this.title, required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '($count)',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemberTile extends StatelessWidget {
+class _MemberCard extends StatelessWidget {
   final GroupMember member;
 
-  const _MemberTile({required this.member});
+  const _MemberCard({required this.member});
 
   IconData get _icon {
     switch (member.role) {
@@ -115,9 +123,29 @@ class _MemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(_icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
-      title: Text(member.alias),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            children: [
+              Icon(_icon, color: cs.onSurfaceVariant, size: 22),
+              const SizedBox(width: 12),
+              Text(
+                member.alias,
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

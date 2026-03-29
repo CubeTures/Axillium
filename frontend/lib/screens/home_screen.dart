@@ -325,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () => widget.onNavigate(1),
     ));
     explore.add(HomeTile(
-      icon: Icons.people_outline,
+      icon: Icons.group_outlined,
       title: 'Community',
       subtitle: 'Stories and experiences from sponsors and leaders',
       onTap: () => widget.onNavigate(2),
@@ -543,7 +543,7 @@ class _ActiveCrisisCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.emergency, size: 18, color: errorColor),
+              Icon(Icons.emergency_outlined, size: 18, color: errorColor),
               const SizedBox(width: 8),
               Text(
                 'Alert active',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/local_user.dart';
 import '../models/meeting.dart';
 import '../services/meeting_service.dart';
+import '../widgets/section_label.dart';
 
 const _canOrganize = {'sponsor', 'leader', 'influencer'};
 
@@ -139,7 +140,10 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     final items = <Widget>[];
 
     if (upcoming.isNotEmpty) {
-      items.add(_SectionHeader(label: 'Upcoming'));
+      items.add(const Padding(
+        padding: EdgeInsets.only(bottom: 10, top: 8),
+        child: SectionLabel(label: 'Upcoming'),
+      ));
       for (final m in upcoming) {
         items.add(_MeetingCard(
           meeting: m,
@@ -150,7 +154,10 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     }
 
     if (past.isNotEmpty) {
-      items.add(_SectionHeader(label: 'Past'));
+      items.add(const Padding(
+        padding: EdgeInsets.only(bottom: 10, top: 8),
+        child: SectionLabel(label: 'Past'),
+      ));
       for (final m in past) {
         items.add(_MeetingCard(
           meeting: m,
@@ -191,34 +198,17 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(context, canOrganize),
       floatingActionButton: canOrganize
-          ? FloatingActionButton(
-              onPressed: _openScheduleSheet,
-              tooltip: 'Schedule meeting',
-              child: const Icon(Icons.add),
+          ? Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 20,
+              ),
+              child: FloatingActionButton(
+                onPressed: _openScheduleSheet,
+                tooltip: 'Schedule meeting',
+                child: const Icon(Icons.add),
+              ),
             )
           : null,
-    );
-  }
-}
-
-// ── Section header ────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 8),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: app-ui-layout
-description: UI style, layout, and component reference for the Axillium Flutter app. Use this skill whenever working on screen layout, navigation, visual design, or new components. Covers the design language, spacing, typography, and the patterns established across home, chat, check-in, and meetings screens.
+description: UI style, layout, and component reference for the Axillium Flutter app. Use this skill whenever working on screen layout, navigation, visual design, or new components. Covers the design language, spacing, typography, and the patterns established across home, chat, check-in, community, notifications, profile, and meetings screens.
 ---
 
 # Axillium UI Reference
@@ -11,11 +11,12 @@ Flat Material You with warm tones. No gradients on content surfaces, no heavy sh
 
 **Core principles:**
 - Surfaces use `surfaceContainerLow` for cards and tiles, `surface` for page backgrounds
-- Rounded corners: `BorderRadius.circular(16)` for cards/tiles, `BorderRadius.circular(12)` for fields, `BorderRadius.circular(32)` for pill-shaped inputs
-- No `Card` widget — use `Material` with explicit `color` and `borderRadius` + `clipBehavior: Clip.antiAlias`
-- No `ListTile` — build rows manually with `Padding` + `Row` for full control
-- AppBars are transparent with `scrolledUnderElevation: 0`; page title comes from the body content, not the AppBar, on content-heavy screens
+- Rounded corners: `BorderRadius.circular(16)` for cards/tiles, `BorderRadius.circular(12)` for fields/icon boxes, `BorderRadius.circular(32)` for pill-shaped inputs
+- No `Card` widget — use `Material` with explicit `color`, `borderRadius`, and `clipBehavior: Clip.antiAlias`
+- No `ListTile` — build rows manually with `Padding` + `Row`
+- No `Divider` as a list separator — use card-based lists with 10px bottom margin per item
 - No engagement metrics, follower counts, or gamification chrome
+- `withValues(alpha: x)` not `withOpacity` — keeps colour space correct
 
 ---
 
@@ -23,9 +24,10 @@ Flat Material You with warm tones. No gradients on content surfaces, no heavy sh
 
 | Use | Style | Weight |
 |---|---|---|
-| Page greeting / hero title | `displaySmall` | w300 (muted) + w700 (name) on two lines |
-| Section labels | `bodySmall` + `letterSpacing: 0.8` + `onSurfaceVariant` | w600 |
-| Card title | `titleSmall` or `titleMedium` | w600 |
+| Tab-screen hero title | `displaySmall` | w700, height 1.1 |
+| Pushed-screen title (in body) | `headlineSmall` | w700 |
+| Section labels | `bodySmall` + `letterSpacing: 0.8` + `onSurfaceVariant` + uppercase | w600 |
+| Card title | `titleSmall` | w600 |
 | Body / description | `bodyMedium` | regular |
 | Metadata / captions | `bodySmall`, `onSurfaceVariant` | regular |
 
@@ -35,7 +37,140 @@ Flat Material You with warm tones. No gradients on content surfaces, no heavy sh
 
 Bottom nav with four tabs: **Home | Chat | Community | Profile**
 
-No nested navigators — screens pushed from tabs use `Navigator.push` with `MaterialPageRoute`.
+Screens pushed from tabs use `Navigator.push` with `MaterialPageRoute` and get a transparent AppBar (for the back button). Tab screens have no AppBar at all.
+
+---
+
+## Two Header Patterns
+
+### Tab screen display header (Home, Community, Notifications, Profile)
+
+No AppBar. `SafeArea(bottom: false)` with the header built directly in the body.
+
+```dart
+Scaffold(
+  backgroundColor: cs.surface,
+  body: SafeArea(
+    bottom: false,
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 32, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Title', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700, height: 1.1)),
+                    Text('Subtitle', style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: ...),
+            ],
+          ),
+        ),
+        Expanded(child: _buildBody()),
+      ],
+    ),
+  ),
+)
+```
+
+### Pushed screen header (Meetings, Sponsor List, Members, Check-in History, etc.)
+
+Transparent AppBar provides the back button. Title lives in the body.
+
+```dart
+Scaffold(
+  backgroundColor: cs.surface,
+  appBar: AppBar(
+    backgroundColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+    // title only if needed (e.g. history screens with short content)
+  ),
+  body: ListView(
+    padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(context).padding.bottom),
+    children: [
+      Text('Screen Title', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 20),
+      ...
+    ],
+  ),
+)
+```
+
+---
+
+## Section Labels
+
+Use `SectionLabel` from `widgets/section_label.dart`. It uppercases the label and applies the standard section typography. Wrap in `Padding` to control spacing around it.
+
+```dart
+import '../widgets/section_label.dart';
+
+// In a ListView:
+const SectionLabel(label: 'Upcoming'),
+const SizedBox(height: 8),
+```
+
+---
+
+## Card Pattern
+
+Every list item is a `Material` card, 10px bottom margin, not a `ListTile`:
+
+```dart
+Padding(
+  padding: const EdgeInsets.only(bottom: 10),
+  child: Material(
+    color: cs.surfaceContainerLow,
+    borderRadius: BorderRadius.circular(16),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(        // only if tappable
+      onTap: ...,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Row(...),
+      ),
+    ),
+  ),
+)
+```
+
+For featured/accented cards use `cs.primaryContainer` instead of `surfaceContainerLow`.
+
+---
+
+## HomeTile Widget (`widgets/home_card.dart`)
+
+The primary home-screen navigation tile. Icon in a `surfaceContainerHighest` box, title + optional subtitle, trailing chevron.
+
+```dart
+HomeTile(
+  icon: Icons.today_outlined,
+  title: 'Daily Check-in',
+  subtitle: 'Not done yet today',
+  onTap: ...,
+)
+```
+
+---
+
+## FloatingActionButton Bottom Padding
+
+Always add explicit bottom padding so the FAB clears the bottom nav bar:
+
+```dart
+floatingActionButton: Padding(
+  padding: EdgeInsets.only(
+    bottom: MediaQuery.of(context).padding.bottom + 20,
+  ),
+  child: FloatingActionButton(...),
+),
+```
 
 ---
 
@@ -46,39 +181,27 @@ No AppBar. `SafeArea` + `ListView` with `padding: EdgeInsets.fromLTRB(20, 32, 20
 Structure:
 1. Two-line greeting (`displaySmall` w300 muted / `displaySmall` w700)
 2. Subtitle in `bodyMedium` + `onSurfaceVariant`
-3. `_CheckInStrip` — full-width tappable row, filled primary when not yet done, `surfaceContainerLow` when done
-4. Section labels (`bodySmall`, spaced caps, `onSurfaceVariant`)
-5. `HomeTile` rows — `surfaceContainerLow`, `circular(16)`, icon box + title + chevron
-
-`HomeTile` anatomy:
-- Container: `surfaceContainerLow`, `circular(16)`, `InkWell`
-- Icon in a `surfaceContainerHighest` box, `circular(12)`, 20px icon
-- Title: `titleMedium` w600, optional subtitle: `bodySmall` `onSurfaceVariant`
-- Trailing: `Icons.chevron_right_rounded`, `onSurfaceVariant` at 50% alpha
+3. `_CheckInStrip` — full-width tappable row
+4. `SectionLabel` rows
+5. `HomeTile` rows
 
 ---
 
 ## Chat Screen Pattern
 
-No AppBar. `extendBodyBehindAppBar: true`. Floating pill header positioned with `Stack` + `Positioned`.
+No AppBar. `extendBodyBehindAppBar: true`. Floating pill header via `Stack` + `Positioned`.
 
 **Floating header pill:**
 - `LinearGradient` from `primaryContainer` → `secondaryContainer`
 - `BorderRadius.circular(28)`, `elevation: 3`
-- Left padding `20`, right padding `12`
-- Title uses `titleMedium` w600 inside a `PopupMenuButton`
 
 **Message bubbles:**
-- "Me" bubbles: `Color(0xFFFCE4EC)` (light pink), text `Color(0xFF4A1428)`, right-aligned, subtle shadow
-- "Other" bubbles: `secondaryContainer`, text `onSecondaryContainer`, left-aligned with `CircleAvatar`
-- Sender alias: `bodySmall` bold above bubble content, bottom padding 2px
-- System messages (check-in notifications): centred, `surfaceContainerHighest` pill, `bodySmall` `onSurfaceVariant`
+- "Me" bubbles: `Color(0xFFFCE4EC)` (hardcoded exception), text `Color(0xFF4A1428)`, right-aligned
+- "Other" bubbles: `secondaryContainer`, text `onSecondaryContainer`, left-aligned
+- System messages: centred, `surfaceContainerHighest` pill
 - Max bubble width: 72% of screen width
 
-**Input bar:**
-- `surfaceContainerHighest` pill, `circular(32)`
-- `TextField` with no border, horizontal padding 20
-- Trailing `FilledButton` circle send button
+**Input bar:** `surfaceContainerHighest` pill, `circular(32)`
 
 ---
 
@@ -91,30 +214,11 @@ No AppBar. `extendBodyBehindAppBar: true`. Floating pill header positioned with 
 
 ---
 
-## Meetings / List Screen Pattern
-
-Transparent AppBar, bold title (`w700`), refresh icon (`Icons.refresh_outlined`).
-
-`ListView` padding: `fromLTRB(20, 16, 20, bottom)`.
-
-**Meeting card:**
-- `Material` with `surfaceContainerLow`, `circular(16)`, `Clip.antiAlias`
-- Padding: `fromLTRB(20, 16, 12, 16)`
-- Title: `titleSmall` w600
-- Info rows: 16px icon + 6px gap + `bodyMedium` text
-- Footer: `bodySmall` `onSurfaceVariant`
-- Bottom margin: 10px
-
-Section headers (`Upcoming`, `Past`): `bodySmall` w600, `letterSpacing: 0.8`, `onSurfaceVariant`, `padding: only(bottom: 10, top: 8)`.
-
----
-
 ## Colour Notes
 
 - Never hardcode `Colors.white` or `Colors.black` — use `colorScheme` tokens
 - "Me" chat bubble is the one intentional hardcoded colour: `0xFFFCE4EC` / `0xFF4A1428`
-- Accent tints (e.g. green on check-in complete) use `accentColor` props, not hardcoded palette values in layout code
-- `withValues(alpha: x)` not `withOpacity` — keeps colour space correct
+- `withValues(alpha: x)` not `withOpacity`
 
 ---
 
@@ -122,6 +226,7 @@ Section headers (`Upcoming`, `Past`): `bodySmall` w600, `letterSpacing: 0.8`, `o
 
 - No `Card()` — use `Material` with explicit decoration
 - No `ListTile` — build rows manually
+- No `Divider` as a list separator — use card-per-item with bottom margin
 - No engagement widgets: likes, follower counts, streaks displayed as achievements
 - No infinite scroll — use pagination
 - No `withOpacity` — use `withValues(alpha: x)`

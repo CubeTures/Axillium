@@ -227,7 +227,7 @@ class _WeeklyPromptScreenState extends State<WeeklyPromptScreen> {
               onPressed: _openSetPromptSheet,
             ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_outlined),
             onPressed: _loadingPrompt ? null : _loadPrompt,
           ),
         ],
@@ -635,7 +635,7 @@ class _SetPromptSheetState extends State<_SetPromptSheet> {
                         controller: scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _suggestions.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (_, index) {
                           final s = _suggestions[index];
                           return ListTile(

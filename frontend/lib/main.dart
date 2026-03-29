@@ -86,7 +86,7 @@ class _MainScreenState extends State<MainScreen> {
   static const _icons = [
     (outline: Icons.home_outlined,          filled: Icons.home_rounded),
     (outline: Icons.chat_bubble_outline,    filled: Icons.chat_bubble),
-    (outline: Icons.people_outline,         filled: Icons.people),
+    (outline: Icons.group_outlined,          filled: Icons.group),
     (outline: Icons.notifications_outlined, filled: Icons.notifications),
     (outline: Icons.person_outline,         filled: Icons.person),
   ];
