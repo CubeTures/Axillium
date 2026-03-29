@@ -103,7 +103,11 @@
 
 ## Next
 
-- Merge
-- Sponsor dms
-- Sponsor accept request
-- Remove past check ins from home page
+- Graduation
+- Direction for chats
+- Moderation tools for leader
+- Weekly prompt chat
+- Reoccurring
+- Metrics
+- Relapse
+- Timestamps in ui for messages

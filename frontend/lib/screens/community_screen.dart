@@ -358,9 +358,6 @@ class _PostRow extends StatelessWidget {
               PostDetailScreen(post: post, localUser: localUser),
         ),
       ),
-      onLongPress: canFeature
-          ? () => onFeatureToggle(post, !isFeatured)
-          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -386,7 +383,20 @@ class _PostRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (isFeatured)
+            if (canFeature)
+              IconButton(
+                icon: Icon(
+                  isFeatured ? Icons.star : Icons.star_border,
+                  size: 20,
+                  color: isFeatured
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                tooltip: isFeatured ? 'Unfeature' : 'Feature',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => onFeatureToggle(post, !isFeatured),
+              )
+            else if (isFeatured)
               Icon(Icons.star, size: 16, color: theme.colorScheme.secondary),
           ],
         ),
