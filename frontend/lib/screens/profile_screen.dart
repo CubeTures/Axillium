@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/group_member.dart';
 import '../models/local_user.dart';
+import '../models/user_stats.dart';
 import '../services/auth_service.dart';
+import '../services/check_in_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sponsor_service.dart';
 import 'check_in_history_screen.dart';
 import 'register_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final LocalUser user;
   final void Function(LocalUser updated) onRankedUp;
   final VoidCallback onLogout;
@@ -20,6 +22,11 @@ class ProfileScreen extends StatelessWidget {
     required this.onLogout,
   });
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   static const _rankLabels = {
     'anonymous': 'Anonymous',
     'apprentice': 'Apprentice',
@@ -40,17 +47,101 @@ class ProfileScreen extends StatelessWidget {
         'You\'ve marked your recovery. You can stay on to support others.',
   };
 
-  Future<void> _rankUp(BuildContext context) async {
+  UserStats? _stats;
+  bool _becomeSponsorPending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen old) {
+    super.didUpdateWidget(old);
+    if (old.user.userId != widget.user.userId) _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    if (!widget.user.isRegistered) return;
+    try {
+      final stats = await CheckInService().getStats(widget.user.userId!);
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      // silently degrade — stats section just won't show
+    }
+    if (widget.user.rank == 'apprentice') {
+      try {
+        final pending = await SponsorService().getBecomeSponsorStatus(widget.user.userId!);
+        if (mounted) setState(() => _becomeSponsorPending = pending);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _requestBecomeSponsor() async {
+    try {
+      await SponsorService().becomeSponsor(widget.user.userId!);
+      if (mounted) {
+        setState(() => _becomeSponsorPending = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request sent to your group leader.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreRole() async {
+    try {
+      final newRole = await SponsorService().restoreRole(widget.user.userId!);
+      final updated = await LocalStorageService().saveRegistration(
+        widget.user.userId!,
+        widget.user.alias,
+        groupId: widget.user.groupId,
+        role: newRole,
+        sponsorId: widget.user.sponsorId,
+      );
+      widget.onRankedUp(updated);
+      await _loadStats();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Your ${_rankLabel(newRole)} role has been restored.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  static String _rankLabel(String rank) {
+    const labels = {
+      'sponsor': 'Sponsor',
+      'leader': 'Leader',
+      'influencer': 'Influencer',
+    };
+    return labels[rank] ?? rank;
+  }
+
+  Future<void> _rankUp() async {
     final result = await Navigator.push<LocalUser>(
       context,
       MaterialPageRoute(
-        builder: (_) => RegisterScreen(currentAlias: user.alias),
+        builder: (_) => RegisterScreen(currentAlias: widget.user.alias),
       ),
     );
-    if (result != null) onRankedUp(result);
+    if (result != null) widget.onRankedUp(result);
   }
 
-  Future<void> _confirmLogout(BuildContext context) async {
+  Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -70,7 +161,7 @@ class ProfileScreen extends StatelessWidget {
     );
     if (confirmed == true) {
       await LocalStorageService().logout();
-      onLogout();
+      widget.onLogout();
     }
   }
 
@@ -78,6 +169,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final user = widget.user;
     final label = _rankLabels[user.rank] ?? user.rank;
     final description = _rankDescriptions[user.rank] ?? '';
 
@@ -99,7 +191,7 @@ class ProfileScreen extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.logout_outlined),
                     tooltip: 'Log out',
-                    onPressed: () => _confirmLogout(context),
+                    onPressed: _confirmLogout,
                   ),
                 ],
               ),
@@ -110,9 +202,7 @@ class ProfileScreen extends StatelessWidget {
                   radius: 40,
                   backgroundColor: cs.primaryContainer,
                   child: Text(
-                    user.alias.isNotEmpty
-                        ? user.alias[0].toUpperCase()
-                        : '?',
+                    user.alias.isNotEmpty ? user.alias[0].toUpperCase() : '?',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: cs.onPrimaryContainer,
                       fontWeight: FontWeight.w700,
@@ -174,13 +264,29 @@ class ProfileScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
 
+              // ── Stats + progress ─────────────────────────────────────────
+              if (user.isRegistered && _stats != null) ...[
+                const SizedBox(height: 28),
+                _StatsRow(stats: _stats!),
+                const SizedBox(height: 12),
+                _SponsorProgressCard(
+                  stats: _stats!,
+                  rank: user.rank,
+                  onRestoreRole: _restoreRole,
+                  becomeSponsorPending: _becomeSponsorPending,
+                  onRequestBecomeSponsor: user.rank == 'apprentice'
+                      ? _requestBecomeSponsor
+                      : null,
+                ),
+              ],
+
               // ── Registered sections ──────────────────────────────────────
               if (user.isRegistered) ...[
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
                 _SponsorStatusSection(
                   key: ValueKey('sponsor_${user.userId}'),
                   user: user,
-                  onUserUpdated: onRankedUp,
+                  onUserUpdated: widget.onRankedUp,
                 ),
                 _ApprenticeListSection(
                   key: ValueKey('apprentices_${user.userId}'),
@@ -205,7 +311,7 @@ class ProfileScreen extends StatelessWidget {
               if (user.rank == 'anonymous') ...[
                 const SizedBox(height: 28),
                 FilledButton(
-                  onPressed: () => _rankUp(context),
+                  onPressed: _rankUp,
                   child: const Text('Register as Apprentice'),
                 ),
               ],
@@ -213,11 +319,403 @@ class ProfileScreen extends StatelessWidget {
               // ── Debug switcher ───────────────────────────────────────────
               if (kDebugMode) ...[
                 const SizedBox(height: 28),
-                _DebugUserSwitcher(onSwitch: onRankedUp),
+                _DebugUserSwitcher(onSwitch: widget.onRankedUp),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Stats row ──────────────────────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  final UserStats stats;
+  const _StatsRow({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            value: stats.daysClean.toString(),
+            label: 'Days clean',
+            icon: Icons.spa_outlined,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _StatCard(
+            value: stats.totalCheckIns.toString(),
+            label: 'Check-ins',
+            icon: Icons.check_circle_outline,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _StatCard(
+            value: stats.daysActive.toString(),
+            label: 'Days active',
+            icon: Icons.calendar_today_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const _StatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: cs.onSurfaceVariant),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sponsor progress card ──────────────────────────────────────────────────────
+
+class _SponsorProgressCard extends StatelessWidget {
+  final UserStats stats;
+  final String rank;
+  final VoidCallback onRestoreRole;
+  final bool becomeSponsorPending;
+  final VoidCallback? onRequestBecomeSponsor;
+
+  static const int _target = 90;
+
+  static const _milestones = [
+    (threshold: 0, label: 'Getting started'),
+    (threshold: 10, label: 'Active member'),
+    (threshold: 30, label: 'Group member'),
+    (threshold: 90, label: 'Sponsor-eligible'),
+  ];
+
+  const _SponsorProgressCard({
+    required this.stats,
+    required this.rank,
+    required this.onRestoreRole,
+    this.becomeSponsorPending = false,
+    this.onRequestBecomeSponsor,
+  });
+
+  bool get _alreadySponsor =>
+      rank == 'sponsor' || rank == 'leader' || rank == 'influencer';
+
+  String get _currentMilestoneLabel {
+    String label = _milestones.first.label;
+    for (final m in _milestones) {
+      if (stats.progressCheckIns >= m.threshold) label = m.label;
+    }
+    return label;
+  }
+
+  String get _nextMilestoneLabel {
+    for (final m in _milestones) {
+      if (stats.progressCheckIns < m.threshold) return m.label;
+    }
+    return '';
+  }
+
+  int get _nextMilestoneThreshold {
+    for (final m in _milestones) {
+      if (stats.progressCheckIns < m.threshold) return m.threshold;
+    }
+    return _target;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final eligible = stats.progressCheckIns >= _target;
+    final paused = stats.isPaused;
+
+    final progress = (stats.progressCheckIns / _target).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.volunteer_activism_outlined,
+                  size: 18, color: cs.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text(
+                'Your path to helping others',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _alreadySponsor && !stats.isDemoted
+                ? 'You\'re already helping others — keep showing up.'
+                : 'Check-ins build readiness. Every day you show up makes you better equipped to walk alongside someone else.',
+            style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+
+          // ── Pause / demotion banners ─────────────────────────────────────
+          if (stats.pauseTier == 3) ...[
+            const SizedBox(height: 12),
+            _PauseBanner(
+              icon: Icons.block_outlined,
+              color: cs.errorContainer,
+              onColor: cs.onErrorContainer,
+              message: 'Sponsor status suspended. '
+                  'Your check-ins are never erased — reach ${_target - stats.progressCheckIns} more to re-earn eligibility.',
+            ),
+          ] else if (stats.pauseTier == 2 && stats.pauseDaysRemaining > 0) ...[
+            const SizedBox(height: 12),
+            _PauseBanner(
+              icon: Icons.hourglass_top_outlined,
+              color: cs.tertiaryContainer,
+              onColor: cs.onTertiaryContainer,
+              message: 'Sponsor role paused for 60 days — ${stats.pauseDaysRemaining} day${stats.pauseDaysRemaining == 1 ? "" : "s"} remaining. '
+                  'Your role and relationships are preserved.',
+            ),
+          ] else if (stats.pauseTier == 1 && stats.pauseDaysRemaining > 0) ...[
+            const SizedBox(height: 12),
+            _PauseBanner(
+              icon: Icons.pause_circle_outline,
+              color: cs.tertiaryContainer,
+              onColor: cs.onTertiaryContainer,
+              message: 'Progress paused for 30 days — ${stats.pauseDaysRemaining} day${stats.pauseDaysRemaining == 1 ? "" : "s"} remaining. '
+                  'Your check-ins are never lost.',
+            ),
+          ],
+
+          // ── Restore prompt (pause ended but role not yet reclaimed) ───────
+          if (stats.isDemoted && stats.pauseDaysRemaining == 0 && stats.pauseTier != 3) ...[
+            const SizedBox(height: 12),
+            _PauseBanner(
+              icon: Icons.check_circle_outline,
+              color: cs.primaryContainer,
+              onColor: cs.onPrimaryContainer,
+              message: 'Your pause has ended. You can reclaim your ${_rankLabel(stats.originalRole)} role.',
+              action: FilledButton.tonal(
+                onPressed: onRestoreRole,
+                child: const Text('Reclaim role'),
+              ),
+            ),
+          ],
+          if (stats.isDemoted && stats.pauseTier == 3 && eligible) ...[
+            const SizedBox(height: 12),
+            _PauseBanner(
+              icon: Icons.check_circle_outline,
+              color: cs.primaryContainer,
+              onColor: cs.onPrimaryContainer,
+              message: 'You\'ve re-earned sponsor eligibility. Reclaim your ${_rankLabel(stats.originalRole)} role.',
+              action: FilledButton.tonal(
+                onPressed: onRestoreRole,
+                child: const Text('Reclaim role'),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+
+          // ── Progress bar ─────────────────────────────────────────────────
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: cs.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                paused ? cs.tertiary : cs.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                eligible || (_alreadySponsor && !stats.isDemoted)
+                    ? _currentMilestoneLabel
+                    : '${stats.progressCheckIns} / $_nextMilestoneThreshold to "$_nextMilestoneLabel"',
+                style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              Text(
+                '${stats.progressCheckIns} check-ins',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+
+          if (eligible && !_alreadySponsor && !stats.isDemoted) ...[
+            const SizedBox(height: 12),
+            if (becomeSponsorPending)
+              _PauseBanner(
+                icon: Icons.hourglass_top_outlined,
+                color: cs.tertiaryContainer,
+                onColor: cs.onTertiaryContainer,
+                message: 'Your request is awaiting leader approval.',
+              )
+            else
+              _PauseBanner(
+                icon: Icons.check_circle_outline,
+                color: cs.primaryContainer,
+                onColor: cs.onPrimaryContainer,
+                message: 'You\'ve reached sponsor eligibility.',
+                action: onRequestBecomeSponsor != null
+                    ? FilledButton.tonal(
+                        onPressed: onRequestBecomeSponsor,
+                        child: const Text('Request sponsor status'),
+                      )
+                    : null,
+              ),
+          ],
+
+          // ── Milestone dots ───────────────────────────────────────────────
+          const SizedBox(height: 14),
+          Row(
+            children: _milestones.map((m) {
+              final reached = stats.progressCheckIns >= m.threshold;
+              return Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: reached
+                            ? (paused ? cs.tertiary : cs.primary)
+                            : cs.surfaceContainerHighest,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      m.label,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 9,
+                        color: reached
+                            ? cs.onSurface
+                            : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _rankLabel(String rank) {
+    const labels = {
+      'sponsor': 'Sponsor',
+      'leader': 'Leader',
+      'influencer': 'Influencer',
+    };
+    return labels[rank] ?? rank;
+  }
+}
+
+class _PauseBanner extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Color onColor;
+  final String message;
+  final Widget? action;
+
+  const _PauseBanner({
+    required this.icon,
+    required this.color,
+    required this.onColor,
+    required this.message,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 16, color: onColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: onColor),
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: 8),
+                  action!,
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -352,7 +850,8 @@ class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
     ({int notifId, int sponsorId, String sponsorAlias})? pending;
 
     if (widget.user.sponsorId != null) {
-      final member = await SponsorService().getUserBasic(widget.user.sponsorId!);
+      final member =
+          await SponsorService().getUserBasic(widget.user.sponsorId!);
       if (member != null) confirmed = member.alias;
     }
 
@@ -380,7 +879,9 @@ class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
@@ -393,7 +894,9 @@ class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
@@ -446,10 +949,12 @@ class _SponsorStatusSectionState extends State<_SponsorStatusSection> {
                 ),
               ),
               TextButton(
-                onPressed:
-                    _confirmedAlias != null ? _removeConfirmed : _rescindPending,
+                onPressed: _confirmedAlias != null
+                    ? _removeConfirmed
+                    : _rescindPending,
                 style: TextButton.styleFrom(foregroundColor: cs.error),
-                child: Text(_confirmedAlias != null ? 'Remove' : 'Rescind'),
+                child:
+                    Text(_confirmedAlias != null ? 'Remove' : 'Rescind'),
               ),
             ],
           ),
@@ -495,13 +1000,15 @@ class _ApprenticeListSectionState extends State<_ApprenticeListSection> {
 
   Future<void> _remove(GroupMember apprentice) async {
     try {
-      await SponsorService().removeApprentice(
-          widget.user.userId!, apprentice.id);
+      await SponsorService()
+          .removeApprentice(widget.user.userId!, apprentice.id);
       if (mounted) setState(() => _apprentices.remove(apprentice));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
@@ -648,9 +1155,8 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : Text(u.alias),
-              onPressed: _loading != null
-                  ? null
-                  : () => _loginAs(u.alias, u.phone),
+              onPressed:
+                  _loading != null ? null : () => _loginAs(u.alias, u.phone),
             );
           }).toList(),
         ),

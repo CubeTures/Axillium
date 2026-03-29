@@ -86,6 +86,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _approveBecomeSponsors(AppNotification n) async {
+    try {
+      await SponsorService().approveBecomeSponsors(widget.user.userId!, n.id);
+      if (mounted) {
+        setState(() => _notifications.remove(n));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${n.senderAlias} is now a sponsor.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _denyBecomeSponsors(AppNotification n) async {
+    try {
+      await SponsorService().denyBecomeSponsors(widget.user.userId!, n.id);
+      if (mounted) {
+        setState(() => _notifications.remove(n));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request from ${n.senderAlias} declined.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<void> _respondToCrisis(AppNotification n) async {
     if (widget.user.userId == null) return;
     try {
@@ -247,6 +283,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 onAccept: _acceptSponsorRequest,
                 onDecline: _declineSponsorRequest,
                 onCrisisRespond: _respondToCrisis,
+                onApproveBecomeSponsors: _approveBecomeSponsors,
+                onDenyBecomeSponsors: _denyBecomeSponsors,
               ),
             ),
           );
@@ -261,12 +299,16 @@ class _NotificationTile extends StatelessWidget {
   final Future<void> Function(AppNotification) onAccept;
   final Future<void> Function(AppNotification) onDecline;
   final Future<void> Function(AppNotification) onCrisisRespond;
+  final Future<void> Function(AppNotification) onApproveBecomeSponsors;
+  final Future<void> Function(AppNotification) onDenyBecomeSponsors;
 
   const _NotificationTile({
     required this.notification,
     required this.onAccept,
     required this.onDecline,
     required this.onCrisisRespond,
+    required this.onApproveBecomeSponsors,
+    required this.onDenyBecomeSponsors,
   });
 
   IconData get _icon {
@@ -281,6 +323,12 @@ class _NotificationTile extends StatelessWidget {
         return Icons.emergency_outlined;
       case 'crisis_responded':
         return Icons.favorite_outlined;
+      case 'become_sponsor_request':
+        return Icons.star_outline;
+      case 'become_sponsor_approved':
+        return Icons.star_rounded;
+      case 'become_sponsor_denied':
+        return Icons.star_border_outlined;
       default:
         return Icons.notifications_outlined;
     }
@@ -293,6 +341,7 @@ class _NotificationTile extends StatelessWidget {
         return cs.error;
       case 'crisis_responded':
       case 'sponsor_accepted':
+      case 'become_sponsor_approved':
         return cs.primary;
       default:
         return cs.onSurfaceVariant;
@@ -315,6 +364,7 @@ class _NotificationTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final isSponsorRequest = notification.type == 'sponsor_request';
     final isCrisisAlert = notification.type == 'crisis_alert';
+    final isBecomeSponsorRequest = notification.type == 'become_sponsor_request';
 
     return Material(
       color: cs.surfaceContainerLow,
@@ -371,6 +421,22 @@ class _NotificationTile extends StatelessWidget {
                         foregroundColor: cs.onError,
                       ),
                       onPressed: () => onCrisisRespond(notification),
+                    ),
+                  ],
+                  if (isBecomeSponsorRequest) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () => onApproveBecomeSponsors(notification),
+                          child: const Text('Approve'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => onDenyBecomeSponsors(notification),
+                          child: const Text('Deny'),
+                        ),
+                      ],
                     ),
                   ],
                 ],
