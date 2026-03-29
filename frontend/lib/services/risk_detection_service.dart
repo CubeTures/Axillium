@@ -121,7 +121,88 @@ class RiskDetectionService {
     return null;
   }
 
+  /// Requests POST_NOTIFICATIONS (Android 13+) and opens Usage Access settings
+  /// if not yet granted. Returns true if usage access is already granted.
+  Future<bool> requestPermissions() async {
+    try {
+      final granted = await _channel.invokeMethod<bool>('requestPermissions');
+      return granted ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Debug: fires the full alert path (backend POST + system notification).
+  /// Returns the backend status: "notified", "no_sponsor", "network_error:...", etc.
+  Future<String> testAlert(int userId, String apiBase) async {
+    try {
+      final status = await _channel.invokeMethod<String>('testAlert', {
+        'userId': userId.toString(),
+        'apiBase': apiBase,
+      });
+      return status ?? 'unknown';
+    } on PlatformException catch (e) {
+      return 'platform_error: ${e.message}';
+    }
+  }
+
+  /// Starts the Android background service that polls for Kalshi every 10 s.
+  /// Should be called once after login for gambling-addiction users with a sponsor.
+  Future<void> startBackgroundMonitoring(int userId, String apiBase) async {
+    try {
+      await _channel.invokeMethod('startMonitoring', {
+        'userId': userId.toString(),
+        'apiBase': apiBase,
+      });
+    } on PlatformException {
+      // not on Android or service unavailable
+    }
+  }
+
+  /// Stops the background monitoring service.
+  Future<void> stopBackgroundMonitoring() async {
+    try {
+      await _channel.invokeMethod('stopMonitoring');
+    } on PlatformException {
+      // ignore
+    }
+  }
+
   /// Opens the Android Usage Access settings screen so the user can grant the
   /// permission needed to detect foreground app usage.
   Future<void> requestUsagePermission() => _openUsageAccessSettings();
+
+  /// Returns true if the accessibility service is enabled.
+  Future<bool> isAccessibilityEnabled() async {
+    try {
+      final enabled = await _channel.invokeMethod<bool>('isAccessibilityEnabled');
+      return enabled ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Opens Android Accessibility Settings so the user can enable the service.
+  Future<void> openAccessibilitySettings() async {
+    try {
+      await _channel.invokeMethod('openAccessibilitySettings');
+    } on PlatformException {
+      // ignore
+    }
+  }
+
+  /// Returns a map of monitoring status for debugging/display.
+  /// Keys: accessibility_enabled, service_connected, user_id, api_base,
+  ///       last_package, last_event_ms
+  Future<Map<String, dynamic>> getMonitoringStatus() async {
+    try {
+      final result = await _channel.invokeMethod<Map>('getMonitoringStatus');
+      if (result != null) {
+        return Map<String, dynamic>.from(result);
+      }
+    } on PlatformException {
+      // not on Android
+    }
+    return {};
+  }
 }

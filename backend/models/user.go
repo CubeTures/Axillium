@@ -20,9 +20,10 @@ type User struct {
 }
 
 type AuthResponse struct {
-	ID        uint   `json:"id"`
-	Alias     string `json:"alias"`
-	GroupID   uint   `json:"group_id"`
-	Role      string `json:"role"`
-	SponsorID uint   `json:"sponsor_id"`
+	ID            uint   `json:"id"`
+	Alias         string `json:"alias"`
+	GroupID       uint   `json:"group_id"`
+	Role          string `json:"role"`
+	SponsorID     uint   `json:"sponsor_id"`
+	AddictionType string `json:"addiction_type"`
 }

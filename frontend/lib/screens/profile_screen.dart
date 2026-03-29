@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/group_member.dart';
 import '../models/local_user.dart';
 import '../models/user_stats.dart';
+import '../config/api_config.dart';
 import '../services/auth_service.dart';
 import '../services/check_in_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/risk_detection_service.dart';
 import '../services/sponsor_service.dart';
 import 'check_in_history_screen.dart';
 import 'register_screen.dart';
@@ -49,17 +51,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   UserStats? _stats;
   bool _becomeSponsorPending = false;
+  bool _monitoringActive = false;
+  final _riskService = RiskDetectionService();
 
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _checkMonitoringStatus();
   }
 
   @override
   void didUpdateWidget(ProfileScreen old) {
     super.didUpdateWidget(old);
-    if (old.user.userId != widget.user.userId) _loadStats();
+    if (old.user.userId != widget.user.userId) {
+      _loadStats();
+      _checkMonitoringStatus();
+    }
+  }
+
+  Future<void> _checkMonitoringStatus() async {
+    final status = await _riskService.getMonitoringStatus();
+    if (!mounted) return;
+    final enabled = status['accessibility_enabled'] == true;
+    final connected = status['service_connected'] == true;
+    final hasUser = (status['user_id'] as String?)?.isNotEmpty == true;
+    setState(() => _monitoringActive = enabled && connected && hasUser);
   }
 
   Future<void> _loadStats() async {
@@ -254,6 +271,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: cs.secondaryContainer,
                       textColor: cs.onSecondaryContainer,
                     ),
+                  if (_monitoringActive)
+                    _Badge(
+                      label: 'Monitored',
+                      color: cs.tertiaryContainer,
+                      textColor: cs.onTertiaryContainer,
+                      icon: Icons.shield_outlined,
+                    ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -320,6 +344,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (kDebugMode) ...[
                 const SizedBox(height: 28),
                 _DebugUserSwitcher(onSwitch: widget.onRankedUp),
+                const SizedBox(height: 12),
+                if (widget.user.userId != null)
+                  _DebugRiskTrigger(user: widget.user),
+                const SizedBox(height: 12),
+                if (widget.user.userId != null)
+                  _DebugMonitoringStatus(riskService: _riskService),
               ],
             ],
           ),
@@ -727,11 +757,13 @@ class _Badge extends StatelessWidget {
   final String label;
   final Color color;
   final Color textColor;
+  final IconData? icon;
 
   const _Badge({
     required this.label,
     required this.color,
     required this.textColor,
+    this.icon,
   });
 
   @override
@@ -742,13 +774,22 @@ class _Badge extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: textColor,
-          fontSize: 13,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: textColor,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1114,6 +1155,7 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
         groupId: apiUser.groupId > 0 ? apiUser.groupId : null,
         role: apiUser.role,
         sponsorId: apiUser.sponsorId > 0 ? apiUser.sponsorId : null,
+        addictionType: apiUser.addictionType,
       );
       widget.onSwitch(localUser);
     } catch (e) {
@@ -1160,6 +1202,150 @@ class _DebugUserSwitcherState extends State<_DebugUserSwitcher> {
             );
           }).toList(),
         ),
+      ],
+    );
+  }
+}
+
+// ── Debug risk trigger ─────────────────────────────────────────────────────────
+
+class _DebugRiskTrigger extends StatefulWidget {
+  final LocalUser user;
+  const _DebugRiskTrigger({required this.user});
+
+  @override
+  State<_DebugRiskTrigger> createState() => _DebugRiskTriggerState();
+}
+
+class _DebugRiskTriggerState extends State<_DebugRiskTrigger> {
+  bool _firing = false;
+  final _svc = RiskDetectionService();
+
+  Future<void> _fire() async {
+    setState(() => _firing = true);
+    final status = await _svc.testAlert(widget.user.userId!, apiBase);
+    if (!mounted) return;
+    setState(() => _firing = false);
+    final msg = switch (status) {
+      'notified'      => 'Sponsor notified.',
+      'no_sponsor'    => 'No sponsor on this account (DB shows sponsor_id = 0).',
+      _               => 'Unexpected: $status',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.bug_report, size: 14),
+        const SizedBox(width: 4),
+        Text('Debug — risk alert',
+            style: Theme.of(context).textTheme.labelSmall),
+        const Spacer(),
+        FilledButton.tonal(
+          onPressed: _firing ? null : _fire,
+          child: _firing
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Fire test alert'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Debug monitoring status ───────────────────────────────────────────────────
+
+class _DebugMonitoringStatus extends StatefulWidget {
+  final RiskDetectionService riskService;
+  const _DebugMonitoringStatus({required this.riskService});
+
+  @override
+  State<_DebugMonitoringStatus> createState() => _DebugMonitoringStatusState();
+}
+
+class _DebugMonitoringStatusState extends State<_DebugMonitoringStatus> {
+  Map<String, dynamic> _status = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final s = await widget.riskService.getMonitoringStatus();
+    if (mounted) setState(() => _status = s);
+  }
+
+  String _formatLastEvent() {
+    final ms = _status['last_event_ms'];
+    if (ms == null || ms == 0) return 'none';
+    final dt = DateTime.fromMillisecondsSinceEpoch((ms as num).toInt());
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    return '${diff.inHours}h ago';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final accEnabled = _status['accessibility_enabled'] == true;
+    final svcConnected = _status['service_connected'] == true;
+    final userId = _status['user_id'] as String? ?? '';
+    final lastPkg = _status['last_package'] as String? ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bug_report, size: 14),
+              const SizedBox(width: 4),
+              Text('Debug — monitoring status',
+                  style: theme.textTheme.labelSmall),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 16),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: _refresh,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _statusRow('Accessibility enabled', accEnabled),
+          _statusRow('Service connected', svcConnected),
+          _statusRow('User ID stored', userId.isNotEmpty),
+          const SizedBox(height: 4),
+          Text('Last event: ${_formatLastEvent()}',
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          if (lastPkg.isNotEmpty)
+            Text('Last package: $lastPkg',
+                style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusRow(String label, bool ok) {
+    return Row(
+      children: [
+        Icon(
+          ok ? Icons.check_circle : Icons.cancel,
+          size: 14,
+          color: ok ? Colors.green : Colors.red,
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

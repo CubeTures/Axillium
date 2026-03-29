@@ -79,6 +79,21 @@ func Login(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, models.AuthResponse{ID: user.ID, Alias: user.Alias, GroupID: user.GroupID, Role: user.Role, SponsorID: user.SponsorID})
+		var addictionType string
+		if user.GroupID > 0 {
+			var group models.Group
+			if db.First(&group, user.GroupID).Error == nil {
+				addictionType = group.AddictionType
+			}
+		}
+
+		c.JSON(http.StatusOK, models.AuthResponse{
+			ID:            user.ID,
+			Alias:         user.Alias,
+			GroupID:       user.GroupID,
+			Role:          user.Role,
+			SponsorID:     user.SponsorID,
+			AddictionType: addictionType,
+		})
 	}
 }

@@ -6,6 +6,7 @@ import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
+import 'config/api_config.dart';
 import 'services/local_storage_service.dart';
 import 'services/risk_detection_service.dart';
 
@@ -98,14 +99,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Delay slightly so the UI is settled before running checks
     Future.delayed(const Duration(seconds: 2), _runRiskCheck);
+    _startBackgroundMonitoringIfEligible();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _riskService.stopBackgroundMonitoring();
     super.dispose();
+  }
+
+  Future<void> _startBackgroundMonitoringIfEligible() async {
+    final user = widget.user;
+    if (user.userId == null) return;
+    if (user.addictionType?.toLowerCase() != 'gambling') return;
+    // Ask for notification permission regardless of sponsor status
+    await _riskService.requestPermissions();
+    // Only set up monitoring if there's actually a sponsor to notify
+    if (user.sponsorId == null) return;
+    // Store the user/api config so the accessibility service can read it
+    _riskService.startBackgroundMonitoring(user.userId!, apiBase);
+    // Prompt for accessibility service if not yet enabled
+    final enabled = await _riskService.isAccessibilityEnabled();
+    if (!enabled && mounted) _showAccessibilityDialog();
   }
 
   @override
@@ -138,6 +155,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _ => 'Your sponsor has been notified. Reach out if you need support.',
     };
     setState(() => _riskWarning = msg);
+  }
+
+  Future<void> _showAccessibilityDialog() async {
+    if (!mounted) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('One permission needed'),
+        content: const Text(
+          'To alert your sponsor if you open a gambling app, '
+          'Axillium needs its accessibility service enabled. '
+          'You\'ll be taken to Settings — find Axillium and toggle it on.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    if (go == true) await _riskService.openAccessibilitySettings();
   }
 
   Future<void> _showUsagePermissionDialog() async {

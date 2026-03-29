@@ -79,6 +79,7 @@ class LocalStorageService {
     int? groupId,
     String role = 'apprentice',
     int? sponsorId,
+    String? addictionType,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_userIdKey, userId);
@@ -90,12 +91,17 @@ class LocalStorageService {
     if (effectiveGroupId != null) await prefs.setInt(_groupIdKey, effectiveGroupId);
     final effectiveSponsorId = sponsorId != null && sponsorId > 0 ? sponsorId : null;
     if (effectiveSponsorId != null) await prefs.setInt(_sponsorIdKey, effectiveSponsorId);
+    // Addiction type comes from the group — overwrite if the backend provided it
+    final effectiveAddictionType = addictionType ?? prefs.getString(_addictionTypeKey);
+    if (effectiveAddictionType != null) {
+      await prefs.setString(_addictionTypeKey, effectiveAddictionType);
+    }
     return LocalUser(
       alias: alias,
       rank: role,
       userId: userId,
       location: prefs.getString(_locationKey),
-      addictionType: prefs.getString(_addictionTypeKey),
+      addictionType: effectiveAddictionType,
       groupId: effectiveGroupId,
       isLeader: isLeader,
       sponsorId: effectiveSponsorId,

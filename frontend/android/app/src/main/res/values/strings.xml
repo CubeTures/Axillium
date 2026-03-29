@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Axillium uses this service to detect when gambling apps are opened so your sponsor can be notified and support you.</string>
+</resources>

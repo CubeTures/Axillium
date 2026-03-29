@@ -241,12 +241,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     if (_notifications.isEmpty) {
-      return Center(
-        child: Text(
-          'No new notifications.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 20 + MediaQuery.of(context).padding.bottom),
+          children: [
+            const SizedBox(height: 80),
+            Center(
+              child: Text(
+                'No new notifications.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
+            ),
+          ],
         ),
       );
     }

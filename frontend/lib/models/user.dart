@@ -4,6 +4,7 @@ class User {
   final int groupId;
   final String role;
   final int sponsorId;
+  final String? addictionType;
 
   User({
     required this.id,
@@ -11,6 +12,7 @@ class User {
     required this.groupId,
     required this.role,
     required this.sponsorId,
+    this.addictionType,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class User {
       groupId: json['group_id'] as int? ?? 0,
       role: json['role'] as String? ?? 'apprentice',
       sponsorId: json['sponsor_id'] as int? ?? 0,
+      addictionType: json['addiction_type'] as String?,
     );
   }
 }
