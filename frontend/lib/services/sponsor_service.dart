@@ -141,6 +141,60 @@ class SponsorService {
     }
   }
 
+  /// Sends a request to the group leader to become a sponsor.
+  Future<void> becomeSponsor(int userId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/$userId/become-sponsor'),
+    );
+    if (response.statusCode == 200) return;
+    final error = jsonDecode(response.body)['error'] ?? 'Failed to send request';
+    throw Exception(error);
+  }
+
+  /// Returns true if the user has a pending become-sponsor request awaiting leader approval.
+  Future<bool> getBecomeSponsorStatus(int userId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/users/$userId/become-sponsor-status'),
+    );
+    if (response.statusCode == 200) return true;
+    if (response.statusCode == 404) return false;
+    throw Exception('Failed to check become-sponsor status');
+  }
+
+  Future<void> approveBecomeSponsors(int leaderId, int notifId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/$leaderId/become-sponsor-requests/$notifId/approve'),
+    );
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body)['error'] ?? 'Failed to approve request';
+      throw Exception(error);
+    }
+  }
+
+  Future<void> denyBecomeSponsors(int leaderId, int notifId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/$leaderId/become-sponsor-requests/$notifId/deny'),
+    );
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body)['error'] ?? 'Failed to deny request';
+      throw Exception(error);
+    }
+  }
+
+  /// Attempts to restore the user's original role after their pause has ended.
+  /// Throws an exception (with a message) if the pause hasn't ended yet.
+  Future<String> restoreRole(int userId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/$userId/restore-role'),
+    );
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as Map<String, dynamic>)['role'] as String;
+    }
+    final error = (jsonDecode(response.body) as Map<String, dynamic>)['error']
+        ?? 'Failed to restore role';
+    throw Exception(error);
+  }
+
   Future<GroupMember?> getUserBasic(int userId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/users/$userId'),

@@ -150,6 +150,55 @@ func Seed(db *gorm.DB) {
 		db.Create(&messages[i])
 	}
 
-	log.Printf("Seed complete: %d groups, %d users, %d messages\n",
-		4, 11, len(messages))
+	// ── Become-sponsor eligibility check-ins ─────────────────────────────────
+	// Bob: 95 clean check-ins → eligible, no pending request (button shows on profile)
+	for i := 95; i >= 1; i-- {
+		t := now.AddDate(0, 0, -i)
+		ci := models.CheckIn{
+			UserID:     bob.ID,
+			MoodScore:  (i%3 + 3),
+			Relapsed:   false,
+			Reflection: "Staying the course.",
+		}
+		ci.CreatedAt = t
+		ci.UpdatedAt = t
+		db.Create(&ci)
+	}
+
+	// Dan: 92 clean check-ins + a pending request sent to Carol (awaiting approval)
+	for i := 92; i >= 1; i-- {
+		t := now.AddDate(0, 0, -i)
+		ci := models.CheckIn{
+			UserID:     dan.ID,
+			MoodScore:  (i%3 + 3),
+			Relapsed:   false,
+			Reflection: "One day at a time.",
+		}
+		ci.CreatedAt = t
+		ci.UpdatedAt = t
+		db.Create(&ci)
+	}
+	db.Create(&models.Notification{
+		RecipientID: carol.ID,
+		SenderID:    dan.ID,
+		Type:        "become_sponsor_request",
+		Message:     "Dan has met the eligibility threshold and would like to become a sponsor.",
+	})
+
+	// Grace: 91 clean check-ins → eligible, no pending request
+	for i := 91; i >= 1; i-- {
+		t := now.AddDate(0, 0, -i)
+		ci := models.CheckIn{
+			UserID:     grace.ID,
+			MoodScore:  (i%3 + 3),
+			Relapsed:   false,
+			Reflection: "Getting there.",
+		}
+		ci.CreatedAt = t
+		ci.UpdatedAt = t
+		db.Create(&ci)
+	}
+
+	log.Printf("Seed complete: %d groups, %d users, %d messages, %d eligibility check-ins\n",
+		4, 11, len(messages), 95+92+91)
 }

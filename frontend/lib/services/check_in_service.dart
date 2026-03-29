@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/check_in.dart';
+import '../models/user_stats.dart';
 
 class CheckInService {
   static const String _baseUrl = apiBase;
@@ -52,5 +53,15 @@ class CheckInService {
       return data.map((j) => CheckIn.fromJson(j)).toList();
     }
     throw Exception('Failed to load check-in history');
+  }
+
+  Future<UserStats> getStats(int userId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/check-ins/$userId/stats'),
+    );
+    if (response.statusCode == 200) {
+      return UserStats.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load stats');
   }
 }

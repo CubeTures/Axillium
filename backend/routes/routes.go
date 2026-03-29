@@ -34,6 +34,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	api.POST("/check-ins", handlers.CreateCheckIn(db))
 	api.GET("/check-ins/:user_id", handlers.GetCheckIns(db))
 	api.GET("/check-ins/:user_id/today", handlers.GetTodayCheckIn(db))
+	api.GET("/check-ins/:user_id/stats", handlers.GetCheckInStats(db))
 
 	users := api.Group("/users")
 	{
@@ -49,6 +50,11 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		users.DELETE("/:id/apprentices/:apprentice_id", handlers.RemoveApprentice(db))
 		users.GET("/:id/notifications", handlers.GetNotifications(db))
 		users.POST("/:id/notifications/:notif_id/read", handlers.MarkNotificationRead(db))
+		users.POST("/:id/restore-role", handlers.RestoreSponsorRole(db))
+		users.POST("/:id/become-sponsor", handlers.BecomeSponsor(db))
+		users.GET("/:id/become-sponsor-status", handlers.GetBecomeSponsorStatus(db))
+		users.POST("/:id/become-sponsor-requests/:notif_id/approve", handlers.ApproveBecomeSponsors(db))
+		users.POST("/:id/become-sponsor-requests/:notif_id/deny", handlers.DenyBecomeSponsors(db))
 	}
 
 	api.GET("/dm", handlers.GetDMs(db))
